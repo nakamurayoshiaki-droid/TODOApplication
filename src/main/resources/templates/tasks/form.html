@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+	
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${task.id == null ? 'タスク追加' : 'タスク編集'} + ' - Todoアプリ'">タスクフォーム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+<div class="container-small">
+	<!-- ヘッダー -->
+    <header class="page-header">
+        <h1 th:text="${task.id == null ? 'タスク新規追加' : 'タスク編集'}">タスク追加</h1>
+    </header>
+    <main class="card">
+		<!-- タスクフォーム -->
+        <form th:action="@{/tasks}" th:object="${task}" method="post">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{sortOrder}">
+
+			<!-- タスク名 -->
+            <div class="form-group">
+                <label for="title">タスク名 <span class="required">*</span></label>
+                <input type="text" id="title" th:field="*{title}" class="form-control" placeholder="例: 報告書の作成" required>
+                <span class="error-msg" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></span>
+            </div>
+
+			<!-- TODO: 指示書に記載のない項目（独自追加）。
+			     指示書の「タスク追加／編集画面の仕様」ではフェーズ1の入力項目はタイトルのみとされており、
+			     詳細・メモ（description）はフェーズ1の対象外。使い勝手のため独自に前倒しで追加している。要確認。 -->
+			<!-- 詳細・メモの入力欄 -->
+            <div class="form-group">
+                <label for="description">詳細・メモ</label>
+                <textarea id="description" th:field="*{description}" class="form-control" rows="4" placeholder="タスクの詳細を入力してください..."></textarea>
+                <span class="error-msg" th:if="${#fields.hasErrors('description')}" th:errors="*{description}"></span>
+            </div>
+
+            <!-- 新規作成時はステータスの選択を表示しない（新規は強制で未着手になるため） -->
+            <div class="form-group" th:if="${task.id != null}">
+                <label for="status">ステータス <span class="required">*</span></label>
+                <select id="status" th:field="*{status}" class="form-control">
+                    <option th:each="st : ${statuses}" th:value="${st.name()}" th:text="${st.displayName}"></option>
+                </select>
+            </div>
+
+			<!-- 保存・キャンセルボタン -->
+            <div class="form-actions">
+                <a th:href="@{/tasks}" class="btn btn-secondary">キャンセル</a>
+                <button type="submit" class="btn btn-primary">保存する</button>
+            </div>
+			
+        </form>
+    </main>
+</div>
+</body>
+</html>

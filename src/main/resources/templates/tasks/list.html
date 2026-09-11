@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク一覧 - Todoアプリ</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+<div class="container">
+	<!-- ヘッダー -->
+    <header class="page-header">
+        <h1>タスク管理システム</h1>
+        <a th:href="@{/tasks/new}" class="btn btn-primary">＋ タスク追加</a>
+    </header>
+
+	<!-- TODO: レビュー時に確認
+	     指示書の「タスク一覧画面の仕様」にはエラーメッセージ表示欄の記載はない。
+	     編集保存・編集フォーム表示時に対象タスクが既に削除されていた場合に表示するため独自に追加。要確認。 -->
+    <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+
+	<!-- タスク一覧 -->
+    <main class="card">
+        <div th:if="${#lists.isEmpty(tasks)}" class="empty-state">
+            <p>タスクはありません</p>
+        </div>
+
+		<!-- タスク一覧テーブル -->
+        <table th:unless="${#lists.isEmpty(tasks)}" class="task-table">
+			<!-- テーブルヘッダー -->
+			 <thead>
+                <tr>
+                    <th class="col-status">ステータス</th>
+                    <th>タスク名</th>
+                    <th class="col-datetime">登録日時</th>
+                    <th class="col-action">操作</th>
+                </tr>
+            </thead>
+			
+			<!-- テーブルボディ -->
+            <tbody id="taskTableBody">
+				
+				<!-- タスクの各行をループで表示 -->
+                <tr th:each="task : ${tasks}" th:id="'task-row-' + ${task.id}"
+                    th:classappend="${
+                        task.status.name() == 'DONE' ? 'is-done' :
+                        (task.status.name() == 'CANCELLED' ? 'is-cancelled' :
+                        (task.status.name() == 'IN_PROGRESS' ? 'is-in-progress' :
+                        (task.status.name() == 'ON_HOLD' ? 'is-on-hold' : '')))
+                    }">
+
+					<!-- ステータスのセレクトボックス -->
+                    <td>
+                        <select class="status-select" th:data-task-id="${task.id}">
+                            <option th:each="st : ${statuses}" 
+                                    th:value="${st.name()}" 
+                                    th:text="${st.displayName}" 
+                                    th:selected="${st == task.status}">
+                            </option>
+                        </select>
+                    </td>
+					
+					<!-- タスク名と詳細の表示 -->
+                    <td>
+                        <span class="task-title" th:text="${task.title}">タスク名</span>
+                        <p th:if="${task.description != null and !task.description.isEmpty()}" 
+                           class="task-desc" th:text="${task.description}"></p>
+                    </td>
+                    <td class="text-muted" th:text="${#temporals.format(task.createdAt, 'yyyy/MM/dd HH:mm')}">2026/12/04</td>
+                    <td class="action-buttons">
+                        <a th:href="@{/tasks/{id}/edit(id=${task.id})}" class="btn btn-secondary btn-sm">編集</a>
+                        <button class="btn btn-danger btn-sm btn-delete" th:data-task-id="${task.id}">削除</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </main>
+</div>
+
+<!-- JavaScriptファイルの読み込み -->
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
