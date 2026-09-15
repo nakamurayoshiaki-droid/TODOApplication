@@ -56,6 +56,8 @@ public class TaskService {
      * タスクを保存します（新規作成／更新）。
      * <p>
      * 更新対象のタスクIDが指定されている場合、対象タスクが存在するか確認し、存在しない場合は例外をスローします。
+     * これは、編集中に対象タスクが別タブ等で既に削除されていた場合に、
+     * そのタスクが保存操作によって復活してしまう挙動を防ぐための仕様です。
      * </p>
      *
      * @param task 保存対象のタスク
@@ -64,9 +66,6 @@ public class TaskService {
      */
     public Task saveTask(Task task) {
 
-        // TODO: レビュー時に確認
-        // 「編集中に対象タスクが別タブ等で削除されていた場合にどうするか」は指示書で未規定。
-        // ここでは事前に存在確認し、削除済みなら例外にする（＝タスクが復活する挙動を防ぐ）方針を仮置している。要確認。
         // idが指定されている（＝更新のつもり）場合、対象がまだ存在するか確認する
         if (task.getId() != null && !taskRepository.existsById(task.getId())) {
             throw new IllegalArgumentException("Task not found: " + task.getId());

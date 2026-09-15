@@ -80,10 +80,8 @@ public class TaskViewController {
                     return "tasks/form";
                 })
                 .orElseGet(() -> {
-                    // TODO: レビュー時に確認
-                    // 「編集リンクを開いた時点で対象タスクが既に削除されていた場合」の挙動は指示書で未規定。
-                    // 元々は例外をそのまま投げてWhitelabel Error Page(500)を表示させていたが、
-                    // ここでは一覧画面へエラーメッセージ付きでリダイレクトする方針に独自変更している。要確認。
+                    // 編集リンクを開いた時点で対象タスクが既に削除されていた場合は、
+                    // Whitelabel Error Page（500）を表示せず、一覧画面へエラーメッセージ付きでリダイレクトする
                     redirectAttributes.addFlashAttribute("errorMessage",
                             "対象のタスクは既に削除されているため、編集できません。");
                     return "redirect:/tasks";
@@ -121,9 +119,7 @@ public class TaskViewController {
             // タスクを保存
             taskService.saveTask(task);
         } catch (IllegalArgumentException e) {
-            // TODO: レビュー時に確認
-            // 「保存しようとした対象タスクが、既に削除されていた場合」の挙動は指示書で未規定。
-            // ここではエラーメッセージ付きで一覧画面へ戻す方針を独自に採用している。要確認。
+            // 保存対象のタスクが既に削除されていた場合は、エラーメッセージ付きで一覧画面へ戻す
             redirectAttributes.addFlashAttribute("errorMessage", "対象のタスクは既に削除されているため、保存できませんでした。");
             return "redirect:/tasks";
         }

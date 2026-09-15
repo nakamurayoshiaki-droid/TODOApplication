@@ -32,16 +32,13 @@ public class TaskRestController {
      *
      * @param id      更新対象のタスクID
      * @param payload リクエストボディ（キー: "status"）
-     * @return 更新後の Task を含む HTTP 200 レスポンス
+     * @return 更新後の Task を含む HTTP 200 レスポンス、または不正なリクエストの場合は
+     *         理由を含む HTTP 400 レスポンス（{@code status} が未指定、または未定義のステータス値の場合）
      * @throws IllegalArgumentException {@code payload} に不正な状態文字列が含まれる場合
      */
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> payload) {
         String statusValue = payload.get("status");
-        // TODO: レビュー時に確認
-        // statusキーが存在しない（null）場合の扱いは指示書で未規定。
-        // TaskStatus.valueOf(null)がNullPointerExceptionを投げてしまい下のcatchで捕捉できないため、
-        // 独自に事前チェックを追加し400を返すようにしている。要確認。
         // statusキーが存在しない（null）場合は、TaskStatus.valueOf(null)がNullPointerExceptionを
         // 投げてしまい下のcatchで捕捉できないため、事前にチェックして400を返す
         if (statusValue == null) {
@@ -51,9 +48,8 @@ public class TaskRestController {
         try {
             status = TaskStatus.valueOf(statusValue);
         } catch (IllegalArgumentException e) {
-            // TODO: レビュー時に確認
-            // 「不正なステータス値（未定義のenum文字列）が送信された場合にどうするか」は指示書で未規定。
-            // 独自にtry-catchを追加し、原因が分かるメッセージ付きで400 Bad Requestを返す方針にしている。
+            // 未定義のステータス値（enumに存在しない文字列）が送信された場合は、
+            // 原因が分かるメッセージ付きで400 Bad Requestを返す
             return ResponseEntity.badRequest().body("不正なステータス値です: " + statusValue);
         }
         Task updated = taskService.updateStatus(id, status);

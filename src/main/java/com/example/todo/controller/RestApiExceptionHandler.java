@@ -10,12 +10,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p>
  * 存在しないタスクIDに対する操作（ステータス更新・削除）で発生する
  * {@link IllegalArgumentException} を捕捉し、素の500エラーではなく
- * REST APIとして適切な 404 Not Found を返すようにする。
+ * REST APIとして適切な 404 Not Found を返す仕様とする。
  * </p>
  */
-// TODO: レビュー時に確認
-// 「存在しないIDに対してステータス更新等を行った場合にどう応答するか」は指示書で未規定。
-// ここでは素の500エラーではなくREST APIらしく404 Not Foundに変換する方針を独自に採用している。
 @RestControllerAdvice(assignableTypes = TaskRestController.class)
 public class RestApiExceptionHandler {
 

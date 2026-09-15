@@ -15,9 +15,7 @@
         <a th:href="@{/tasks/new}" class="btn btn-primary">＋ タスク追加</a>
     </header>
 
-	<!-- TODO: レビュー時に確認
-	     指示書の「タスク一覧画面の仕様」にはエラーメッセージ表示欄の記載はない。
-	     編集保存・編集フォーム表示時に対象タスクが既に削除されていた場合に表示するため独自に追加。要確認。 -->
+	<!-- 編集フォーム表示・保存時に対象タスクが既に削除されていた場合のエラーメッセージ表示欄 -->
     <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
 
 	<!-- タスク一覧 -->
