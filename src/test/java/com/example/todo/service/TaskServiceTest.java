@@ -227,4 +227,144 @@ class TaskServiceTest {
 		int indexB = tasks.indexOf(tasks.stream().filter(t -> t.getTitle().equals("並び順確認タスクB")).findFirst().orElseThrow());
 		assertThat(indexB).isLessThan(indexA);
 	}
+
+	@Test
+	void 絵文字や改行を含む詳細が保存され表示できること() {
+
+		// ※作業指示書「フェーズ2」この段階で実施するテスト対応
+		// 「絵文字や改行を含む詳細（description）の入力が保存・表示できること
+		//  （MySQL/MariaDBの文字コードがutf8mb4になっているか確認）」
+		//
+		// 絵文字（😀🎉📝等）はUTF-8で4バイトとなるため、DB・接続文字コードが
+		// utf8mb4（4バイト対応）になっていないと、保存時に文字化けしたり、
+		// INSERT自体が失敗したりする。実際のMySQL/MariaDBへ保存・再読込することで、
+		// 文字コード設定が正しいことを確認する。
+
+		//------------準備--------------------------
+
+		String descriptionWithEmojiAndNewline = "買い物リスト📝\n- 牛乳🥛\n- 卵🥚\n- パン🍞\n完了したら🎉で祝う！";
+
+		Task task = new Task();
+		task.setTitle("絵文字_改行確認タスク");
+		task.setDescription(descriptionWithEmojiAndNewline);
+
+		//------------実行--------------------------
+
+		Task saved = taskService.saveTask(task);
+
+		// 1次キャッシュに頼らず、本当にDBへ正しく保存・読み込みできているかを確認する
+		entityManager.flush();
+		entityManager.clear();
+		Task reloaded = taskService.getTaskById(saved.getId()).orElseThrow();
+
+		//------------比較--------------------------
+
+		// 絵文字・改行を含む文字列が、文字化けや欠損なくそのまま保存・取得できていること
+		assertThat(reloaded.getDescription()).isEqualTo(descriptionWithEmojiAndNewline);
+	}
+
+	@Test
+	void reorderTasksで渡した順序どおりにsortOrderが振り直される() {
+
+		// ※指示書「並び替え仕様」に基づき追加
+		// （ドラッグ&ドロップ後の並び順永続化ロジックを検証する）
+
+		//------------準備--------------------------
+
+		Task a = new Task();
+		a.setTitle("並び替えAPI確認タスクA");
+		Task savedA = taskService.saveTask(a);
+
+		Task b = new Task();
+		b.setTitle("並び替えAPI確認タスクB");
+		Task savedB = taskService.saveTask(b);
+
+		Task c = new Task();
+		c.setTitle("並び替えAPI確認タスクC");
+		Task savedC = taskService.saveTask(c);
+
+		//------------実行--------------------------
+
+		// C→A→Bの順に並び替える
+		taskService.reorderTasks(List.of(savedC.getId(), savedA.getId(), savedB.getId()));
+
+		entityManager.flush();
+		entityManager.clear();
+
+		//------------比較--------------------------
+
+		Task reloadedA = taskService.getTaskById(savedA.getId()).orElseThrow();
+		Task reloadedB = taskService.getTaskById(savedB.getId()).orElseThrow();
+		Task reloadedC = taskService.getTaskById(savedC.getId()).orElseThrow();
+
+		assertThat(reloadedC.getSortOrder()).isEqualTo(0);
+		assertThat(reloadedA.getSortOrder()).isEqualTo(1);
+		assertThat(reloadedB.getSortOrder()).isEqualTo(2);
+	}
+
+	@Test
+	void reorderTasksに存在しないIDが含まれていても無視して残りのタスクの並び順が正しく振り直される() {
+
+		// ※指示書に記載のない観点：カバレッジ向上のため追加
+		// （reorderTasksの「存在しないタスクIDは無視して続行する」分岐
+		// （taskOpt.isEmpty()がtrueの場合）が未網羅だったため）
+
+		//------------準備--------------------------
+
+		Task a = new Task();
+		a.setTitle("並び替え存在しないID確認タスクA");
+		Task savedA = taskService.saveTask(a);
+
+		Task b = new Task();
+		b.setTitle("並び替え存在しないID確認タスクB");
+		Task savedB = taskService.saveTask(b);
+
+		// 一覧取得後に別タブ等で削除された状況を再現する
+		long deletedId = 999999999L;
+
+		//------------実行--------------------------
+
+		// 削除済み(存在しない)ID→B→AのIDリストで並び替える
+		taskService.reorderTasks(List.of(deletedId, savedB.getId(), savedA.getId()));
+
+		entityManager.flush();
+		entityManager.clear();
+
+		//------------比較--------------------------
+
+		Task reloadedA = taskService.getTaskById(savedA.getId()).orElseThrow();
+		Task reloadedB = taskService.getTaskById(savedB.getId()).orElseThrow();
+
+		// 存在しないIDの分もorderがインクリメントされた上で、
+		// 続くB・Aのタスクにはスキップせず正しい順番でsortOrderが設定されること
+		assertThat(reloadedB.getSortOrder()).isEqualTo(1);
+		assertThat(reloadedA.getSortOrder()).isEqualTo(2);
+	}
+
+	@Test
+	void 検索条件を指定するとAND結合で絞り込んだ結果が返る() {
+
+		// ※指示書「フィルタリング・検索仕様」に基づき追加
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setTitle("サービス層検索確認タスク");
+		task.setPriority(com.example.todo.model.Priority.HIGH);
+		Task saved = taskService.saveTask(task);
+		taskService.updateStatus(saved.getId(), TaskStatus.IN_PROGRESS);
+
+		Task other = new Task();
+		other.setTitle("サービス層検索対象外タスク");
+		taskService.saveTask(other);
+
+		//------------実行--------------------------
+
+		List<Task> result = taskService.searchTasks(TaskStatus.IN_PROGRESS, null,
+				com.example.todo.model.Priority.HIGH, "サービス層検索", null, false);
+
+		//------------比較--------------------------
+
+		assertThat(result).extracting(Task::getTitle).containsExactly("サービス層検索確認タスク");
+	}
 }

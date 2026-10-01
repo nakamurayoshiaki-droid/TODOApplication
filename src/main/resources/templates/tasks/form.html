@@ -28,14 +28,35 @@
                 <span class="error-msg" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></span>
             </div>
 
-			<!-- TODO: 指示書に記載のない項目（独自追加）。
-			     指示書の「タスク追加／編集画面の仕様」ではフェーズ1の入力項目はタイトルのみとされており、
-			     詳細・メモ（description）はフェーズ1の対象外。使い勝手のため独自に前倒しで追加している。要確認。 -->
 			<!-- 詳細・メモの入力欄 -->
             <div class="form-group">
                 <label for="description">詳細・メモ</label>
                 <textarea id="description" th:field="*{description}" class="form-control" rows="4" placeholder="タスクの詳細を入力してください..."></textarea>
                 <span class="error-msg" th:if="${#fields.hasErrors('description')}" th:errors="*{description}"></span>
+            </div>
+
+			<!-- 優先度の選択欄（未設定時はMEDIUM扱い） -->
+            <div class="form-group">
+                <label for="priority">優先度</label>
+                <select id="priority" th:field="*{priority}" class="form-control">
+                    <option th:each="pr : ${priorities}" th:value="${pr.name()}" th:text="${pr.displayName}"></option>
+                </select>
+            </div>
+
+			<!-- 期限の入力欄（未設定＝期限なしを許容） -->
+            <div class="form-group">
+                <label for="dueDate">期限</label>
+                <input type="date" id="dueDate" th:field="*{dueDate}" class="form-control">
+                <span class="error-msg" th:if="${#fields.hasErrors('dueDate')}" th:errors="*{dueDate}"></span>
+            </div>
+
+			<!-- カテゴリの選択欄（「カテゴリなし」を含む） -->
+            <div class="form-group">
+                <label for="categoryId">カテゴリ</label>
+                <select id="categoryId" th:field="*{categoryId}" class="form-control">
+                    <option value="">カテゴリなし</option>
+                    <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+                </select>
             </div>
 
             <!-- 新規作成時はステータスの選択を表示しない（新規は強制で未着手になるため） -->

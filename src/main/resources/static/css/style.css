@@ -40,6 +40,12 @@ body {
     letter-spacing: 1px;
 }
 
+/* ページヘッダー右側のボタン群（カテゴリ管理・タスク追加など） */
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
 /* エラーメッセージ表示用のスタイル。要確認。 */
 .alert-error {
     background: rgba(220, 38, 38, 0.15);
@@ -49,6 +55,77 @@ body {
     border-radius: 6px;
     margin-bottom: 20px;
     font-size: 0.9rem;
+}
+
+/* 成功メッセージ表示用のスタイル（カテゴリ追加・削除完了時など） */
+.alert-success {
+    background: rgba(5, 150, 105, 0.15);
+    border: 1px solid #059669;
+    color: #6ee7b7;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+/* カード内の見出し（カテゴリ管理画面など） */
+.section-title {
+    font-size: 1rem;
+    color: #a7f3d0;
+    margin-bottom: 16px;
+}
+
+/* フィルタ・検索バー（指示書「フィルタリング・検索仕様」） */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px 24px;
+}
+
+/* フィルタ項目1つ分（ラベル＋入力欄） */
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+}
+
+/* キーワード検索欄は少し幅広に */
+.filter-group-keyword {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #a7f3d0;
+}
+
+/* フィルタ選択中（「すべて」以外を選択・入力中）のハイライト表示
+   （指示書「フィルタ選択状態は、選択中のボタンをハイライト表示して画面上に示す」） */
+.filter-select.filter-active,
+#filterKeyword.filter-active {
+    border-color: #34d399;
+    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+}
+
+/* 並び替え時にドラッグ中の行に付与するスタイル */
+.task-table tbody tr.ui-sortable-helper {
+    background: #14392f;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* 並び替え禁止中（絞り込み中）はドラッグハンドルの見た目にしない */
+.task-table.sort-disabled tbody tr {
+    cursor: default;
+}
+
+/* 並び替え許可中は行にドラッグ可能なカーソルを表示 */
+.task-table:not(.sort-disabled) tbody tr {
+    cursor: move;
 }
 
 /* カードのスタイル */
@@ -162,8 +239,17 @@ body {
     width: 140px;
 }
 
-.task-table .col-datetime {
-    width: 180px;
+/* 期限列（yyyy/MM/dd 形式・最大10文字程度）はコンパクトに収まるため幅を絞り、
+   その分タスク名列の表示スペースを広げてタイトルが折り返しにくいようにする */
+.task-table .col-due-date {
+    width: 100px;
+    white-space: nowrap;
+}
+
+/* 登録日時列（yyyy/MM/dd HH:mm 形式）は期限列より長いが、それでも十分に狭く収まる */
+.task-table .col-created-at {
+    width: 130px;
+    white-space: nowrap;
 }
 
 .task-table .col-action {
@@ -195,6 +281,77 @@ body {
     word-break: break-word;
 }
 
+/* 優先度バッジの共通スタイル（指示書「優先度仕様」: 高=赤、中=黄、低=緑） */
+.priority-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 8px;
+    vertical-align: middle;
+    color: #ffffff;
+}
+
+/* 優先度: 高 */
+.priority-high {
+    background: #dc2626;
+}
+
+/* 優先度: 中 */
+.priority-medium {
+    background: #ca8a04;
+}
+
+/* 優先度: 低 */
+.priority-low {
+    background: #16a34a;
+}
+
+/* カテゴリバッジの共通スタイル（指示書「カテゴリ機能仕様」: category.color を背景色に使用） */
+.category-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 8px;
+    vertical-align: middle;
+    color: #ffffff;
+}
+
+/* 期限切れ（指示書「期限仕様」: 期限切れは赤字＋「期限切れ」ラベル） */
+.due-overdue {
+    color: #f87171 !important;
+    opacity: 1 !important;
+    font-weight: bold;
+}
+
+/* 当日期限（指示書「期限仕様」: 今日が期限の場合はオレンジ色で強調） */
+.due-today {
+    color: #fb923c !important;
+    opacity: 1 !important;
+    font-weight: bold;
+}
+
+/* 期限切れ／当日期限のラベル共通スタイル */
+.due-label {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    color: #ffffff;
+    background: #dc2626;
+    vertical-align: middle;
+}
+
+/* 当日期限ラベルの色をオレンジに変更 */
+.due-label-today {
+    background: #ea580c;
+}
+
 /* 補助的なテキスト（例: 日付、補足情報）を薄い色で表示 */
 .text-muted {
     font-size: 0.8rem;
@@ -212,11 +369,11 @@ body {
     color: #4b7a6b;
 }
 
-/* ステータス: 中止（CANCELLED） - 取り消し線＋斜体でDONEと区別 */
+/* ステータス: 中止（CANCELLED） - 取り消し線＋斜体＋赤字でDONEと区別 */
 .is-cancelled .task-title {
     text-decoration: line-through;
     font-style: italic;
-    color: #7a8a86;
+    color: #dc2626;
 }
 
 /* ステータス: 進行中（IN_PROGRESS） - 行全体を青系の背景色で強調表示 */

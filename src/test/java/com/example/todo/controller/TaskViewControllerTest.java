@@ -268,4 +268,69 @@ class TaskViewControllerTest {
 				.andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("編集前タイトル"))))
 				.andExpect(content().string(org.hamcrest.Matchers.containsString("is-in-progress")));
 	}
+
+	@Test
+	void 編集フォームに期限がISO形式yyyyMMdd形式で表示され編集後も保持される() throws Exception {
+
+		// ※指示書に記載のない観点：バグ修正の再発防止のため追加
+		// （@DateTimeFormat未指定だと環境のロケールによって期限欄の value が "11/3/26" のような
+		//   非ISO形式で出力され、HTML5のinput type="date"に不正な値として無視され、
+		//   編集画面を開いた時点で期限が空欄に見えてしまう不具合があったため）
+
+		//------------準備：期限つきタスクを作成--------------------------
+		Task task = new Task();
+		task.setTitle("期限表示確認タスク");
+		task.setDueDate(java.time.LocalDate.of(2026, 11, 3));
+		Task saved = taskService.saveTask(task);
+
+		//------------実行：編集フォームのdueDate欄がISO形式(yyyy-MM-dd)で出力されること--------------------------
+		mockMvc.perform(get("/tasks/{id}/edit", saved.getId()))
+				.andExpect(status().isOk())
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"2026-11-03\"")));
+
+		//------------実行：フォーム一式（dueDate含む）で編集POSTしても期限が保持されること--------------------------
+		mockMvc.perform(post("/tasks")
+				.param("id", String.valueOf(saved.getId()))
+				.param("sortOrder", "0")
+				.param("title", "期限表示確認タスク（編集後）")
+				.param("priority", "MEDIUM")
+				.param("dueDate", "2026-11-03")
+				.param("status", "TODO"))
+				.andExpect(status().is3xxRedirection());
+
+		//------------比較--------------------------
+		Task reloaded = taskService.getTaskById(saved.getId()).orElseThrow();
+		assertThat(reloaded.getDueDate()).isEqualTo(java.time.LocalDate.of(2026, 11, 3));
+	}
+
+	@Test
+	void 保存対象のタスクが既に削除されていた場合はエラーメッセージ付きで一覧へリダイレクトされる() throws Exception {
+
+		// ※指示書に記載のない観点：カバレッジ向上のため追加
+		// （saveTaskの「更新対象が既に削除されていた場合」のIllegalArgumentExceptionハンドリング分岐を網羅する）
+
+		//------------準備--------------------------
+
+		// タスクを作成した後、別タブ等で先に削除された状況を再現する
+		Task task = new Task();
+		task.setTitle("編集中に削除されるタスク");
+		Task saved = taskService.saveTask(task);
+		long deletedId = saved.getId();
+		taskService.deleteTask(deletedId);
+
+		//------------実行 & 比較--------------------------
+
+		// 削除済みのIDを指定して編集フォームから保存を試みる
+		mockMvc.perform(post("/tasks")
+				.param("id", String.valueOf(deletedId))
+				.param("title", "編集中に削除されるタスク")
+				.param("sortOrder", "0"))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(view().name("redirect:/tasks"))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+						.flash().attributeExists("errorMessage"));
+
+		// タスクが復活して保存されていないこと
+		assertThat(taskService.getTaskById(deletedId)).isEmpty();
+	}
 }

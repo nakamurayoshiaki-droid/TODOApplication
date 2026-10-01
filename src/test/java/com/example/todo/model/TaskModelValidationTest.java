@@ -2,7 +2,10 @@ package com.example.todo.model;
 
 import java.util.Set;
 
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -16,10 +19,18 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * Springコンテキストを起動せず、Validatorを直接使うことで高速に実行できる。
  * </p>
+ * <p>
+ * {@code @TestMethodOrder} と {@code @Order} により、
+ * デフォルトのハッシュベースの実行順ではなく、
+ * ソースコード上の記述順（＝指示書に沿った意味的な順序）で
+ * テストが実行・表示されるようにしている。
+ * </p>
  */
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class TaskModelValidationTest {
 
 	@Test
+	@Order(1)
 	void タイトルが空のままだとバリデーションエラーになる() {
 
 		//------------準備--------------------------
@@ -45,6 +56,7 @@ class TaskModelValidationTest {
 	}
 
 	@Test
+	@Order(2)
 	void タイトルが設定されていればバリデーションエラーにならない() {
 
 		//------------準備--------------------------
@@ -92,6 +104,7 @@ class TaskModelValidationTest {
 	}
 
 	@Test
+	@Order(4)
 	void タイトルが空白文字のみの場合もバリデーションエラーになる() {
 
 		// ※指示書に記載のない観点：カバレッジ向上のため追加
@@ -142,6 +155,7 @@ class TaskModelValidationTest {
 	}
 
 	@Test
+	@Order(6)
 	void タイトルが101文字以上だとバリデーションエラーになる() {
 
 		// ※指示書に記載のない観点：カバレッジ向上のため追加
@@ -165,8 +179,35 @@ class TaskModelValidationTest {
 					.anyMatch(v -> v.getPropertyPath().toString().equals("title"));
 		}
 	}
+	
+	@Test
+	void 詳細が2000文字ちょうどであればバリデーションエラーにならない() {
+
+		// ※指示書に記載のない観点：カバレッジ向上のため追加
+		// （description項目の@Size(max=2000)制約の境界値ちょうどのケースを網羅するため）
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setTitle("正常なタイトル");
+		task.setDescription("あ".repeat(2000)); // 最大文字数ちょうど
+
+		//------------実行--------------------------
+
+		try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+			Validator validator = factory.getValidator();
+			Set<ConstraintViolation<Task>> violations = validator.validate(task);
+
+			//------------比較--------------------------
+
+			// 境界値ちょうどなのでdescriptionに関する違反が発生しないこと
+			assertThat(violations)
+					.noneMatch(v -> v.getPropertyPath().toString().equals("description"));
+		}
+	}
 
 	@Test
+	@Order(8)
 	void 詳細が2000文字を超えるとバリデーションエラーになる() {
 
 		// ※指示書に記載のない観点：カバレッジ向上のため追加

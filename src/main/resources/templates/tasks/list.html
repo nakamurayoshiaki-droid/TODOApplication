@@ -6,32 +6,82 @@
     <title>タスク一覧 - Todoアプリ</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- 並び替え（ドラッグ&ドロップ）機能で使用するjQuery UI（指示書「並び替え仕様」: jQuery UIのsortable()を使用する） -->
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 </head>
 <body>
 <div class="container">
 	<!-- ヘッダー -->
     <header class="page-header">
         <h1>タスク管理システム</h1>
-        <a th:href="@{/tasks/new}" class="btn btn-primary">＋ タスク追加</a>
+        <div class="header-actions">
+            <a th:href="@{/categories}" class="btn btn-secondary">カテゴリ管理</a>
+            <a th:href="@{/tasks/new}" class="btn btn-primary">＋ タスク追加</a>
+        </div>
     </header>
 
 	<!-- 編集フォーム表示・保存時に対象タスクが既に削除されていた場合のエラーメッセージ表示欄 -->
     <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
 
+	<!-- フィルタ・検索バー（指示書「フィルタリング・検索仕様」: ステータス／期限／優先度／キーワード／カテゴリをAND結合で絞り込み） -->
+    <div class="card filter-bar">
+        <div class="filter-group">
+            <label for="filterStatus">ステータス</label>
+            <select id="filterStatus" class="form-control filter-select">
+                <option value="">すべて</option>
+                <option th:each="st : ${statuses}" th:value="${st.name()}" th:text="${st.displayName}"></option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="filterDue">期限</label>
+            <select id="filterDue" class="form-control filter-select">
+                <option value="">すべて</option>
+                <option value="TODAY_OR_EARLIER">今日まで</option>
+                <option value="OVERDUE">期限切れのみ</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="filterPriority">優先度</label>
+            <select id="filterPriority" class="form-control filter-select">
+                <option value="">すべて</option>
+                <option th:each="pr : ${priorities}" th:value="${pr.name()}" th:text="${pr.displayName}"></option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="filterCategory">カテゴリ</label>
+            <select id="filterCategory" class="form-control filter-select">
+                <option value="">すべて</option>
+                <option value="NONE">カテゴリなし</option>
+                <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"
+                        th:attr="data-color=${cat.color}"></option>
+            </select>
+        </div>
+        <div class="filter-group filter-group-keyword">
+            <label for="filterKeyword">キーワード検索</label>
+            <input type="text" id="filterKeyword" class="form-control" placeholder="タイトル・詳細を検索">
+        </div>
+    </div>
+
 	<!-- タスク一覧 -->
     <main class="card">
-        <div th:if="${#lists.isEmpty(tasks)}" class="empty-state">
+        <div id="emptyState" class="empty-state" th:style="${#lists.isEmpty(tasks)} ? '' : 'display:none;'">
             <p>タスクはありません</p>
         </div>
 
+        <!-- 並び替え中の案内（絞り込み中は並び替え不可） -->
+        <p id="sortHint" class="text-muted" style="margin-bottom: 8px; text-align: center;">
+            行をドラッグして並び替えできます（絞り込み中は並び替えできません）
+        </p>
+
 		<!-- タスク一覧テーブル -->
-        <table th:unless="${#lists.isEmpty(tasks)}" class="task-table">
+        <table id="taskTable" class="task-table" th:style="${#lists.isEmpty(tasks)} ? 'display:none;' : ''">
 			<!-- テーブルヘッダー -->
 			 <thead>
                 <tr>
                     <th class="col-status">ステータス</th>
                     <th>タスク名</th>
-                    <th class="col-datetime">登録日時</th>
+                    <th class="col-due-date">期限</th>
+                    <th class="col-created-at">登録日時</th>
                     <th class="col-action">操作</th>
                 </tr>
             </thead>
@@ -40,12 +90,13 @@
             <tbody id="taskTableBody">
 				
 				<!-- タスクの各行をループで表示 -->
-                <tr th:each="task : ${tasks}" th:id="'task-row-' + ${task.id}"
+                <tr th:each="task : ${tasks}" th:id="'task-row-' + ${task.id}" th:data-task-id="${task.id}"
                     th:classappend="${
-                        task.status.name() == 'DONE' ? 'is-done' :
+                        task.status == null ? '' :
+                        (task.status.name() == 'DONE' ? 'is-done' :
                         (task.status.name() == 'CANCELLED' ? 'is-cancelled' :
                         (task.status.name() == 'IN_PROGRESS' ? 'is-in-progress' :
-                        (task.status.name() == 'ON_HOLD' ? 'is-on-hold' : '')))
+                        (task.status.name() == 'ON_HOLD' ? 'is-on-hold' : ''))))
                     }">
 
 					<!-- ステータスのセレクトボックス -->
@@ -61,11 +112,31 @@
 					
 					<!-- タスク名と詳細の表示 -->
                     <td>
+                        <span class="priority-badge"
+                              th:with="pr=${task.priority != null ? task.priority : T(com.example.todo.model.Priority).MEDIUM}"
+                              th:classappend="'priority-' + ${#strings.toLowerCase(pr.name())}"
+                              th:text="${pr.displayName}">優先度</span>
+                        <span th:if="${task.categoryId != null}" class="category-badge"
+                              th:with="cat=${categoryMap.get(task.categoryId)}"
+                              th:style="'background-color:' + (${cat != null ? cat.color : '#334155'} ?: '#334155')"
+                              th:text="${cat != null ? cat.name : ''}">カテゴリ</span>
+                        <span th:if="${task.overdue}" class="due-label">期限切れ</span>
+                        <span th:if="${task.dueToday}" class="due-label due-label-today">本日期限</span>
                         <span class="task-title" th:text="${task.title}">タスク名</span>
                         <p th:if="${task.description != null and !task.description.isEmpty()}" 
                            class="task-desc" th:text="${task.description}"></p>
                     </td>
-                    <td class="text-muted" th:text="${#temporals.format(task.createdAt, 'yyyy/MM/dd HH:mm')}">2026/12/04</td>
+                    <td class="text-muted col-due-date"
+                        th:classappend="${task.overdue ? 'due-overdue' : (task.dueToday ? 'due-today' : '')}">
+                        <span th:if="${task.dueDate != null}" th:text="${#temporals.format(task.dueDate, 'yyyy/MM/dd')}">2026/12/04</span>
+                        <span th:unless="${task.dueDate != null}">-</span>
+                    </td>
+
+                    <td class="text-muted col-created-at">
+                        <span th:if="${task.createdAt != null}" th:text="${#temporals.format(task.createdAt, 'yyyy/MM/dd HH:mm')}">2026/12/04</span>
+                        <span th:unless="${task.createdAt != null}">-</span>
+                    </td>
+
                     <td class="action-buttons">
                         <a th:href="@{/tasks/{id}/edit(id=${task.id})}" class="btn btn-secondary btn-sm">編集</a>
                         <button class="btn btn-danger btn-sm btn-delete" th:data-task-id="${task.id}">削除</button>
@@ -75,6 +146,11 @@
         </table>
     </main>
 </div>
+
+<!-- Ajaxで再描画する行のステータス選択肢を組み立てる際に使う非表示テンプレート -->
+<template id="statusOptionsTemplate">
+    <option th:each="st : ${statuses}" th:value="${st.name()}" th:text="${st.displayName}"></option>
+</template>
 
 <!-- JavaScriptファイルの読み込み -->
 <script th:src="@{/js/app.js}"></script>
