@@ -50,7 +50,7 @@
 			<div th:if="${#lists.isEmpty(categories)}" class="empty-state">
 				<p>カテゴリは登録されていません</p>
 			</div>
-			<table th:unless="${#lists.isEmpty(categories)}" class="task-table">
+			<table th:unless="${#lists.isEmpty(categories)}" class="category-table">
 				<thead>
 					<tr>
 						<th>カテゴリ名</th>

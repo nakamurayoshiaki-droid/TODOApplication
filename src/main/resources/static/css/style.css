@@ -193,24 +193,28 @@ body {
 }
 
 /* タスクテーブルのスタイル */
-.task-table {
+.task-table,
+.category-table {
     width: 100%;
     border-collapse: collapse;
     table-layout: auto;
 }
 
 /* タスクテーブルのヘッダーのボーダーを調整して、ヘッダーとボディの間にスペースを作る */
-.task-table thead tr {
+.task-table thead tr,
+.category-table thead tr {
     border-bottom: 1px solid #1a4d3e;
 }
 
 /* タスクテーブルの行のボーダーを調整して、行間にスペースを作る */
-.task-table tbody tr {
+.task-table tbody tr,
+.category-table tbody tr {
     border-bottom: 1px solid #1a4d3e;
 }
 
 /* タスクテーブルのセルのパディングを調整し、テキストを左揃えにする */
-.task-table th, .task-table td {
+.task-table th, .task-table td,
+.category-table th, .category-table td {
     padding: 16px 8px;
     text-align: left;
     vertical-align: middle;
@@ -218,17 +222,20 @@ body {
 }
 
 /* タスクテーブルの最初の列のパディングを調整 */
-.task-table th:first-child, .task-table td:first-child {
+.task-table th:first-child, .task-table td:first-child,
+.category-table th:first-child, .category-table td:first-child {
     padding-left: 0;
 }
 
 /* タスクテーブルの最後の列のパディングを調整 */
-.task-table th:last-child, .task-table td:last-child {
+.task-table th:last-child, .task-table td:last-child,
+.category-table th:last-child, .category-table td:last-child {
     padding-right: 0;
 }
 
 /* タスクテーブルのヘッダーのスタイルを調整 */
-.task-table th {
+.task-table th,
+.category-table th {
     color: #a7f3d0;
     font-size: 0.85rem;
     font-weight: 600;
@@ -252,19 +259,23 @@ body {
     white-space: nowrap;
 }
 
-.task-table .col-action {
+.task-table .col-action,
+.category-table .col-action {
     width: 150px;
 }
 
 /* タスクのアクション列のヘッダーを中央揃えにする */
-.task-table .col-action-head {
+.task-table .col-action-head,
+.category-table .col-action-head {
     text-align: center;
 }
 
 /* タスクのアクションボタンを中央揃えにする */
-.task-table .col-action-cell {
+.task-table .col-action-cell,
+.category-table .col-action-cell {
     text-align: center;
 }
+
 
 /* タスクのタイトルを太字にして、少し大きめのフォントで表示 */
 .task-title {
