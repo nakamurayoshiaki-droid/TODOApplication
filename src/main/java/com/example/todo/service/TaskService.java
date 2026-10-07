@@ -96,6 +96,13 @@ public class TaskService {
      * これは、編集中に対象タスクが別タブ等で既に削除されていた場合に、
      * そのタスクが保存操作によって復活してしまう挙動を防ぐための仕様です。
      * </p>
+     * <p>
+     * また、{@code form.html}（タスク編集フォーム）は {@code completedAt} を保持する項目を持たないため、
+     * 何もしなければステータスが変化していない場合でも、フォーム送信のたびに完了日時が {@code null} で
+     * 上書きされてしまう不具合がある。これを防ぐため、更新時は必ず既存レコードを取得し、
+     * {@link #resolveCompletedAt(TaskStatus, TaskStatus, LocalDateTime)} でステータスの変化前後を比較した上で
+     * 完了日時を引き継ぐ／再設定／解除する。
+     * </p>
      *
      * @param task 保存対象のタスク
      * @return 保存後のタスク
@@ -104,8 +111,13 @@ public class TaskService {
     public Task saveTask(Task task) {
 
         // idが指定されている（＝更新のつもり）場合、対象がまだ存在するか確認する
-        if (task.getId() != null && !taskRepository.existsById(task.getId())) {
-            throw new IllegalArgumentException("Task not found: " + task.getId());
+        if (task.getId() != null) {
+            Task existing = taskRepository.findById(task.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Task not found: " + task.getId()));
+
+            // フォームにstatus欄が無い（新規作成直後の遷移等）場合は、既存のステータスを「変更なし」として扱う
+            TaskStatus newStatus = task.getStatus() != null ? task.getStatus() : existing.getStatus();
+            task.setCompletedAt(resolveCompletedAt(existing.getStatus(), newStatus, existing.getCompletedAt()));
         }
 
     	// タスクを保存（新規作成または更新）し、保存後のタスクを返す
@@ -127,17 +139,41 @@ public class TaskService {
     	// orElseThrowを使って、タスクが存在しない場合にIllegalArgumentExceptionをスローする
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + id));
+
+        TaskStatus oldStatus = task.getStatus();
         task.setStatus(status);
-        
-        // ステータスが DONE の場合は完了日時を設定し、それ以外の場合は完了日時をクリア
-        if (status == TaskStatus.DONE) {
-            task.setCompletedAt(LocalDateTime.now());
-        } else {
-            task.setCompletedAt(null);
-        }
+        task.setCompletedAt(resolveCompletedAt(oldStatus, status, task.getCompletedAt()));
         
         // タスクを保存して更新後の状態を返す
         return taskRepository.save(task);
+    }
+
+    /**
+     * ステータスの変化前後を比較し、適切な完了日時（{@code completedAt}）を決定する。
+     * <p>
+     * {@link #saveTask}（フォーム経由の保存）と {@link #updateStatus}（ステータス変更API）の
+     * 両方から共通で呼び出すことで、どちらの経路でステータスを変更しても一貫した挙動になるようにする。
+     * 特に「DONE→DONE（ステータスに変化がない）」を区別できるようにしておくことは、
+     * 今後のフェーズ（繰り返しタスク：DONEへ遷移した瞬間にのみ次回分を自動生成する）で
+     * 「本当に今完了したのか、既に完了済みのタスクを再保存しただけなのか」を正しく見分けるためにも必要となる。
+     * </p>
+     * <ul>
+     *   <li>DONE以外 → DONE（新たに完了した）: 現在日時を新たに設定する</li>
+     *   <li>DONE → DONE（ステータスに変化なし）: 既存の完了日時をそのまま引き継ぐ（上書きしない）</li>
+     *   <li>DONE → DONE以外: {@code null} に戻す</li>
+     *   <li>DONE以外 → DONE以外: 変化なし（{@code null} のまま）</li>
+     * </ul>
+     *
+     * @param oldStatus           変更前のステータス（新規作成の場合は {@code null} でもよい）
+     * @param newStatus           変更後のステータス
+     * @param existingCompletedAt 変更前の完了日時（DONE→DONEの場合に引き継ぐ値）
+     * @return 決定後の完了日時
+     */
+    private LocalDateTime resolveCompletedAt(TaskStatus oldStatus, TaskStatus newStatus, LocalDateTime existingCompletedAt) {
+        if (newStatus != TaskStatus.DONE) {
+            return null;
+        }
+        return oldStatus == TaskStatus.DONE ? existingCompletedAt : LocalDateTime.now();
     }
 
     /**

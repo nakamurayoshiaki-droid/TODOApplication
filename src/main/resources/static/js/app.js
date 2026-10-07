@@ -212,7 +212,10 @@ function buildTaskRow(task) {
     row.append(dueTd);
 
     // 登録日時
-    row.append($('<td class="text-muted">').text(formatDateTime(task.createdAt)));
+    row.append($('<td class="text-muted col-created-at">').text(formatDateTime(task.createdAt)));
+
+    // 完了日時（statusをDONEに変更した日時。未完了の場合は「-」を表示）
+    row.append($('<td class="text-muted col-completed-at">').text(task.completedAt ? formatDateTime(task.completedAt) : '-'));
 
     // 操作ボタン
     const actionTd = $('<td class="action-buttons">');

@@ -82,6 +82,7 @@
                     <th>タスク名</th>
                     <th class="col-due-date">期限</th>
                     <th class="col-created-at">登録日時</th>
+                    <th class="col-completed-at">完了日時</th>
                     <th class="col-action">操作</th>
                 </tr>
             </thead>
@@ -135,6 +136,12 @@
                     <td class="text-muted col-created-at">
                         <span th:if="${task.createdAt != null}" th:text="${#temporals.format(task.createdAt, 'yyyy/MM/dd HH:mm')}">2026/12/04</span>
                         <span th:unless="${task.createdAt != null}">-</span>
+                    </td>
+
+                    <!-- 完了日時（statusをDONEに変更した日時。未完了の場合は「-」を表示） -->
+                    <td class="text-muted col-completed-at">
+                        <span th:if="${task.completedAt != null}" th:text="${#temporals.format(task.completedAt, 'yyyy/MM/dd HH:mm')}">2026/12/04</span>
+                        <span th:unless="${task.completedAt != null}">-</span>
                     </td>
 
                     <td class="action-buttons">

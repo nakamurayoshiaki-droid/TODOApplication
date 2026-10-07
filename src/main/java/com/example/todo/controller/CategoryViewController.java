@@ -32,10 +32,13 @@ public class CategoryViewController {
      */
     @GetMapping
     public String listCategories(Model model) {
+    	// カテゴリ一覧を取得してモデルに追加
         model.addAttribute("categories", categoryService.getAllCategories());
+        // 新規作成フォーム用の空の Category オブジェクトをモデルに追加（存在しない場合のみ）
         if (!model.containsAttribute("category")) {
             model.addAttribute("category", new Category());
         }
+        // カテゴリ一覧画面のテンプレート名を返す
         return "categories/list";
     }
 
@@ -55,12 +58,14 @@ public class CategoryViewController {
     @PostMapping
     public String saveCategory(@Valid @ModelAttribute("category") Category category, BindingResult result,
             Model model, RedirectAttributes redirectAttributes) {
-
+    	// バリデーションエラーがある場合は、カテゴリ一覧を再表示する
         if (result.hasErrors()) {
+        	// カテゴリ一覧を取得してモデルに追加
             model.addAttribute("categories", categoryService.getAllCategories());
             return "categories/list";
         }
 
+        // カテゴリを保存する際に、名前の重複などで IllegalArgumentException が発生する可能性があるため、try-catch で処理する
         try {
             categoryService.saveCategory(category);
         } catch (IllegalArgumentException e) {
@@ -69,6 +74,7 @@ public class CategoryViewController {
             return "categories/list";
         }
 
+        // 保存成功時は、フラッシュ属性に成功メッセージを追加して一覧画面へリダイレクトする
         redirectAttributes.addFlashAttribute("successMessage", "カテゴリを追加しました。");
         return "redirect:/categories";
     }
@@ -89,6 +95,8 @@ public class CategoryViewController {
     @PostMapping("/{id}/delete")
     public String deleteCategory(@PathVariable Long id, RedirectAttributes redirectAttributes) {
         categoryService.deleteCategory(id);
+        
+        // 削除成功時は、フラッシュ属性に成功メッセージを追加して一覧画面へリダイレクトする
         redirectAttributes.addFlashAttribute("successMessage", "カテゴリを削除しました。");
         return "redirect:/categories";
     }

@@ -10,6 +10,7 @@ import com.example.todo.model.TaskStatus;
 
 import jakarta.persistence.EntityManager;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -339,6 +340,100 @@ class TaskServiceTest {
 		// 続くB・Aのタスクにはスキップせず正しい順番でsortOrderが設定されること
 		assertThat(reloadedB.getSortOrder()).isEqualTo(1);
 		assertThat(reloadedA.getSortOrder()).isEqualTo(2);
+	}
+
+	@Test
+	void DONEのタスクをステータス変更なしでフォーム経由保存しても完了日時が保持される() {
+
+		// ※バグ修正に伴い追加
+		// 不具合: form.htmlはcompletedAtを持たないため、DONEのタスクを編集画面から保存する
+		// （ステータスはDONEのまま変更しない）と、completedAtがnullで上書きされてしまっていた。
+		// saveTaskがステータスの変化前後を見て完了日時を引き継ぐことを確認する。
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setTitle("完了日時保持確認タスク");
+		Task saved = taskService.saveTask(task);
+		Task doneTask = taskService.updateStatus(saved.getId(), TaskStatus.DONE);
+		var originalCompletedAt = doneTask.getCompletedAt();
+
+		//------------実行--------------------------
+
+		// フォーム送信を模して、completedAtを持たない（nullの）TaskでステータスをそのままsaveTaskする
+		Task editedFromForm = new Task();
+		editedFromForm.setId(saved.getId());
+		editedFromForm.setTitle("完了日時保持確認タスク（編集後）");
+		editedFromForm.setStatus(TaskStatus.DONE);
+		editedFromForm.setSortOrder(saved.getSortOrder());
+		Task resaved = taskService.saveTask(editedFromForm);
+
+		entityManager.flush();
+		entityManager.clear();
+		Task reloaded = taskService.getTaskById(saved.getId()).orElseThrow();
+
+		//------------比較--------------------------
+
+		// 完了日時が消えずに元の値のまま保持されていること
+		// ※DB（MySQLのDATETIME）は秒未満の精度を保持しないため、秒単位に丸めて比較する
+		assertThat(resaved.getCompletedAt()).isEqualTo(originalCompletedAt);
+		assertThat(reloaded.getCompletedAt().truncatedTo(ChronoUnit.SECONDS))
+				.isEqualTo(originalCompletedAt.truncatedTo(ChronoUnit.SECONDS));
+		assertThat(reloaded.getStatus()).isEqualTo(TaskStatus.DONE);
+	}
+
+	@Test
+	void DONEのタスクをフォーム経由で他ステータスへ変更すると完了日時がクリアされる() {
+
+		// ※バグ修正に伴い追加（saveTask経由でもupdateStatusと同じ解除ルールが働くことを確認）
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setTitle("フォーム経由完了解除確認タスク");
+		Task saved = taskService.saveTask(task);
+		taskService.updateStatus(saved.getId(), TaskStatus.DONE);
+
+		//------------実行--------------------------
+
+		Task editedFromForm = new Task();
+		editedFromForm.setId(saved.getId());
+		editedFromForm.setTitle("フォーム経由完了解除確認タスク");
+		editedFromForm.setStatus(TaskStatus.IN_PROGRESS);
+		editedFromForm.setSortOrder(saved.getSortOrder());
+		Task resaved = taskService.saveTask(editedFromForm);
+
+		//------------比較--------------------------
+
+		assertThat(resaved.getStatus()).isEqualTo(TaskStatus.IN_PROGRESS);
+		assertThat(resaved.getCompletedAt()).isNull();
+	}
+
+	@Test
+	void 未完了のタスクをフォーム経由でDONEにすると完了日時が新規設定される() {
+
+		// ※バグ修正に伴い追加（フォーム編集画面からDONEへ変更した場合も、
+		// インラインのステータス切替（updateStatus）と同じく完了日時が設定されることを確認）
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setTitle("フォーム経由完了設定確認タスク");
+		Task saved = taskService.saveTask(task);
+
+		//------------実行--------------------------
+
+		Task editedFromForm = new Task();
+		editedFromForm.setId(saved.getId());
+		editedFromForm.setTitle("フォーム経由完了設定確認タスク");
+		editedFromForm.setStatus(TaskStatus.DONE);
+		editedFromForm.setSortOrder(saved.getSortOrder());
+		Task resaved = taskService.saveTask(editedFromForm);
+
+		//------------比較--------------------------
+
+		assertThat(resaved.getStatus()).isEqualTo(TaskStatus.DONE);
+		assertThat(resaved.getCompletedAt()).isNotNull();
 	}
 
 	@Test

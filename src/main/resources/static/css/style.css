@@ -259,6 +259,12 @@ body {
     white-space: nowrap;
 }
 
+/* 完了日時列（yyyy/MM/dd HH:mm 形式・未完了時は「-」）は登録日時列と同じ幅で揃える */
+.task-table .col-completed-at {
+    width: 130px;
+    white-space: nowrap;
+}
+
 .task-table .col-action,
 .category-table .col-action {
     width: 150px;
