@@ -7,7 +7,11 @@ import com.example.todo.model.TaskStatus;
 import com.example.todo.service.CategoryService;
 import com.example.todo.service.TaskService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,13 +32,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * TaskRestController の検索API（GET /api/tasks）・並び替えAPI（PUT /api/tasks/reorder）を検証するテストクラス。
  * <p>
- * 指示書「フィルタリング・検索仕様」「並び替え仕様」に基づき、複数条件のAND結合検索と
- * 並び順の永続化が正しく機能するかをMockMvc経由で確認する。
+ * 複数条件のAND結合検索と並び順の永続化が正しく機能するかをMockMvc経由で確認する。
  * </p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class TaskRestControllerSearchTest {
 
     @Autowired
@@ -53,6 +57,7 @@ class TaskRestControllerSearchTest {
     private ObjectMapper objectMapper;
 
     @Test
+    @Order(1)
     void ステータスで絞り込むと該当するタスクのみ返る() throws Exception {
 
         //------------準備--------------------------
@@ -77,6 +82,7 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(2)
     void キーワード検索でタイトル_詳細の部分一致が大文字小文字を区別せず絞り込まれる() throws Exception {
 
         //------------準備--------------------------
@@ -101,6 +107,7 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(3)
     void 期限切れのみで絞り込むと期限切れタスクのみ返る() throws Exception {
 
         //------------準備--------------------------
@@ -126,6 +133,7 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(4)
     void カテゴリで絞り込むと該当タスクのみ返る() throws Exception {
 
         //------------準備--------------------------
@@ -154,6 +162,7 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(5)
     void 優先度と組み合わせた複数条件がAND結合で正しく絞り込まれる() throws Exception {
 
         //------------準備--------------------------
@@ -181,9 +190,9 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(6)
     void カテゴリなしで絞り込むとカテゴリ未設定タスクのみ返る() throws Exception {
-
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
+    	
         // （TaskSpecifications#hasCategoryのnoCategory=true分岐が未網羅だったため）
 
         //------------準備--------------------------
@@ -212,9 +221,9 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(7)
     void 期限今日以前で絞り込むと今日と過去のタスクのみ返る() throws Exception {
 
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （TaskSpecifications#dueFilterのDUE_TODAY_OR_EARLIER分岐が未網羅だったため）
 
         //------------準備--------------------------
@@ -240,9 +249,9 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(8)
     void 期限フィルタに未知の値を指定すると絞り込まれずに全件返る() throws Exception {
 
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （TaskSpecifications#dueFilterの「TODAY_OR_EARLIER/OVERDUEどちらにも
         // 一致しない非空文字列（例:"ALL"）の場合にnullを返す」分岐が未網羅だったため）
 
@@ -262,15 +271,16 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(9)
     void 不正なステータス値で検索すると400が返る() throws Exception {
         mockMvc.perform(get("/api/tasks").param("status", "UNKNOWN"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
+    @Order(10)
     void 不正な優先度値で検索すると400が返る() throws Exception {
 
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （searchTasksの優先度パラメータに対する不正値ハンドリング分岐を網羅する）
 
         mockMvc.perform(get("/api/tasks").param("priority", "UNKNOWN_PRIORITY"))
@@ -278,9 +288,9 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(11)
     void 数値でもNONEでもない不正なカテゴリ値で検索すると400が返る() throws Exception {
 
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （searchTasksのカテゴリパラメータに対するNumberFormatExceptionハンドリング分岐を網羅する）
 
         mockMvc.perform(get("/api/tasks").param("category", "abc"))
@@ -288,6 +298,7 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(12)
     void PUTで並び替え後の順序がsortOrderとしてDBへ永続化される() throws Exception {
 
         //------------準備--------------------------
@@ -325,6 +336,7 @@ class TaskRestControllerSearchTest {
     }
 
     @Test
+    @Order(13)
     void PUTでtaskIdsが未指定の場合400が返る() throws Exception {
         mockMvc.perform(put("/api/tasks/reorder")
                 .contentType("application/json")

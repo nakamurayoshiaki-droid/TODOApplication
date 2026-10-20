@@ -13,9 +13,9 @@ body {
     padding: 30px 20px;
 }
 
-/* コンテナのスタイル */
+/* コンテナのスタイル。*/
 .container {
-    max-width: 960px;
+    max-width: 1280px;
     margin: 0 auto;
 }
 
@@ -75,7 +75,7 @@ body {
     margin-bottom: 16px;
 }
 
-/* フィルタ・検索バー（指示書「フィルタリング・検索仕様」） */
+/* フィルタ・検索バー */
 .filter-bar {
     display: flex;
     flex-wrap: wrap;
@@ -104,8 +104,7 @@ body {
     color: #a7f3d0;
 }
 
-/* フィルタ選択中（「すべて」以外を選択・入力中）のハイライト表示
-   （指示書「フィルタ選択状態は、選択中のボタンをハイライト表示して画面上に示す」） */
+/* フィルタ選択中（「すべて」以外を選択・入力中）のハイライト表示　*/
 .filter-select.filter-active,
 #filterKeyword.filter-active {
     border-color: #34d399;
@@ -270,6 +269,105 @@ body {
     width: 150px;
 }
 
+.task-table .col-action {
+    width: 280px;
+}
+
+.task-table .action-buttons {
+    justify-content: flex-start;
+}
+
+/* サブタスク展開アイコン列。アイコン1つ分の最小幅に絞る */
+.task-table .col-expand {
+    width: 28px;
+    padding-right: 0;
+}
+
+/* サブタスク展開／折りたたみボタン（▶/▼）の見た目。他の操作ボタンとは別の控えめなスタイルにする */
+.btn-toggle-subtasks {
+    background: none;
+    border: none;
+    color: #34d399;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 4px 6px;
+    line-height: 1;
+}
+
+.btn-toggle-subtasks:hover {
+    color: #6ee7b7;
+}
+
+.btn-toggle-subtasks:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* サブタスクの進捗バッジ（例: "2/5完了"）。優先度バッジ等と並べて表示する */
+.subtask-progress {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 4px;
+    vertical-align: middle;
+    color: #061a14;
+    background: #a7f3d0;
+}
+
+/* 進捗バッジ＋進捗バーをまとめて並べるためのラッパー */
+.subtask-progress-wrapper {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* サブタスクの進捗バー。
+   トラック（背景）部分。完了率に応じてfill要素の幅を変える。 */
+.subtask-progress-bar {
+    display: inline-block;
+    width: 60px;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+/* 進捗バーの塗りつぶし部分。幅(width)はJS/Thymeleaf側で完了率(%)に応じて設定する */
+.subtask-progress-bar-fill {
+    display: block;
+    height: 100%;
+    background: #34d399;
+    border-radius: 4px;
+    transition: width 0.2s ease;
+}
+
+/* 進捗100%（全サブタスク完了）の場合は、より強調した色にする */
+.subtask-progress-bar-fill.is-complete {
+    background: #10b981;
+}
+
+/* サブタスク行（親タスクの展開表示で挿入される行）。
+   「タイトルの文字だけ」ではなく「行自体」を一段右にずらして、ツリー構造の
+   ネストのように見せる（transformは要素のレイアウト幅には影響しないため、
+   テーブルの列幅・他の行とは無関係に、この行の見た目の位置だけを右にずらせる）。
+   通常の行より少し背景を暗くし、並び替え対象外であることが視覚的にも分かるように
+   カーソルをdefaultにする。 */
+.task-table tbody tr.subtask-row {
+    background-color: rgba(0, 0, 0, 0.18);
+    cursor: default !important;
+    transform: translateX(24px);
+}
+
+/* サブタスクのタイトル先頭に「└ 」を付け、どの親の下にぶら下がっているかをより分かりやすくする */
+.subtask-title::before {
+    content: "└ ";
+    color: #4b7a6b;
+}
+
 /* タスクのアクション列のヘッダーを中央揃えにする */
 .task-table .col-action-head,
 .category-table .col-action-head {
@@ -298,7 +396,7 @@ body {
     word-break: break-word;
 }
 
-/* 優先度バッジの共通スタイル（指示書「優先度仕様」: 高=赤、中=黄、低=緑） */
+/* 優先度バッジの共通スタイル */
 .priority-badge {
     display: inline-block;
     font-size: 0.7rem;
@@ -325,7 +423,7 @@ body {
     background: #16a34a;
 }
 
-/* カテゴリバッジの共通スタイル（指示書「カテゴリ機能仕様」: category.color を背景色に使用） */
+/* カテゴリバッジの共通スタイル */
 .category-badge {
     display: inline-block;
     font-size: 0.7rem;
@@ -337,14 +435,14 @@ body {
     color: #ffffff;
 }
 
-/* 期限切れ（指示書「期限仕様」: 期限切れは赤字＋「期限切れ」ラベル） */
+/* 期限切れ */
 .due-overdue {
     color: #f87171 !important;
     opacity: 1 !important;
     font-weight: bold;
 }
 
-/* 当日期限（指示書「期限仕様」: 今日が期限の場合はオレンジ色で強調） */
+/* 当日期限 */
 .due-today {
     color: #fb923c !important;
     opacity: 1 !important;

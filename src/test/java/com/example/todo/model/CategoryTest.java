@@ -1,6 +1,9 @@
 package com.example.todo.model;
 
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -8,12 +11,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Category エンティティの単純なgetter/setter・コンストラクタの挙動を検証するテストクラス。
  * </p>
  */
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class CategoryTest {
 
     @Test
+    @Order(1)
     void name_colorを受け取るコンストラクタで生成すると各値が設定される() {
-
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （Category(String name, String color) コンストラクタが未網羅だったため）
 
         //------------実行--------------------------
@@ -28,9 +31,8 @@ class CategoryTest {
     }
 
     @Test
+    @Order(2)
     void 各getter_setterに設定した値がそのまま取得できる() {
-
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （setId等、アプリ内から未使用のgetter/setterを網羅する目的）
 
         //------------準備--------------------------

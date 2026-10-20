@@ -1,6 +1,9 @@
 package com.example.todo.controller;
 
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,15 +23,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 /**
- * TaskViewController の画面表示・フォーム送信を検証するテストクラス。
- * <p>
- * 実際にHTTPリクエストを模擬し（MockMvc）、バリデーションエラー時の挙動や
- * ステータスに応じた一覧画面の表示スタイル切替を確認する。
- * </p>
+- TaskViewController の画面表示・フォーム送信を検証するテストクラス。
+- 
+<p>
+- 実際にHTTPリクエストを模擬し（MockMvc）、バリデーションエラー時の挙動や
+- ステータスに応じた一覧画面の表示スタイル切替を確認する。
+- 
+</p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class TaskViewControllerTest {
 
 	@Autowired
@@ -38,6 +44,7 @@ class TaskViewControllerTest {
 	private TaskService taskService;
 
 	@Test
+	@Order(1)
 	void タイトルが空のまま保存しようとするとエラーになりフォームが再表示される() throws Exception {
 
 		//------------準備--------------------------
@@ -58,6 +65,7 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(2)
 	void ステータスがON_HOLDのタスクは一覧でis_on_holdクラスが付与される() throws Exception {
 
 		//------------準備--------------------------
@@ -76,6 +84,7 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(3)
 	void ステータスがCANCELLEDのタスクは一覧でis_cancelledクラスが付与される() throws Exception {
 
 		//------------準備--------------------------
@@ -94,9 +103,9 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(4)
 	void 新規作成フォーム画面が空のタスクとステータス一覧付きで表示される() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （newTaskFormメソッドが未網羅だったため）
 
 		//------------実行 & 比較--------------------------
@@ -111,9 +120,34 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(5)
+	void 一覧のサブタスク追加ボタン経由でparentTaskIdを指定すると新規作成フォームに事前選択される() throws Exception {
+
+		// 一覧画面の「＋サブタスク」ボタンから/tasks/new?parentTaskId={id} へ遷移した場合、親タスクが事前選択された状態で
+		// フォームが表示されることを確認する
+
+		//------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("サブタスク追加ボタン確認用の親タスク");
+		Task savedParent = taskService.saveTask(parent);
+
+		//------------実行 & 比較--------------------------
+
+		mockMvc.perform(get("/tasks/new").param("parentTaskId", String.valueOf(savedParent.getId())))
+				.andExpect(status().isOk())
+				.andExpect(view().name("tasks/form"))
+				.andExpect(model().attribute("task",
+						org.hamcrest.Matchers.hasProperty("parentTaskId", org.hamcrest.Matchers.equalTo(savedParent.getId()))))
+				.andExpect(model().attributeExists("parentTaskCandidates"))
+				// 親タスクの候補一覧に、事前選択対象のタスクが含まれていること
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("サブタスク追加ボタン確認用の親タスク")));
+	}
+
+	@Test
+	@Order(6)
 	void 編集フォーム画面に対象タスクの情報が表示される() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （editTaskFormメソッドの正常系が未網羅だったため）
 
 		//------------準備--------------------------
@@ -131,6 +165,7 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(7)
 	void 存在しないIDで編集フォームを開こうとするとエラーメッセージ付きで一覧へリダイレクトされる() throws Exception {
 
 		//------------準備--------------------------
@@ -147,9 +182,9 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(8)
 	void タイトルが空白文字のみだとエラーになりフォームが再表示される() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （@NotBlankの空白文字トリム挙動を網羅するため）
 
 		//------------準備--------------------------
@@ -169,9 +204,9 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(9)
 	void タイトルが101文字以上だとエラーになりフォームが再表示される() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （@Size(max=100)の境界値超過ケースを網羅するため）
 
 		//------------準備--------------------------
@@ -192,9 +227,9 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(10)
 	void 有効なタイトルで新規作成すると一覧画面に即座に反映される() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （「追加が一覧に即座に反映される」という観点を検証する）
 
 		//------------実行--------------------------
@@ -215,9 +250,9 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(11)
 	void 新規作成時にステータスを指定しても強制的にTODOになる() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （saveTaskの「新規作成時はTODOに強制」する分岐を網羅するため）
 
 		//------------実行--------------------------
@@ -239,9 +274,9 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(12)
 	void 既存タスクを編集すると一覧画面の表示内容が即座に更新される() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （「編集が一覧に即座に反映される」という観点を検証する）
 
 		//------------準備--------------------------
@@ -270,9 +305,9 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(13)
 	void 編集フォームに期限がISO形式yyyyMMdd形式で表示され編集後も保持される() throws Exception {
 
-		// ※指示書に記載のない観点：バグ修正の再発防止のため追加
 		// （@DateTimeFormat未指定だと環境のロケールによって期限欄の value が "11/3/26" のような
 		//   非ISO形式で出力され、HTML5のinput type="date"に不正な値として無視され、
 		//   編集画面を開いた時点で期限が空欄に見えてしまう不具合があったため）
@@ -304,9 +339,9 @@ class TaskViewControllerTest {
 	}
 
 	@Test
+	@Order(14)
 	void 保存対象のタスクが既に削除されていた場合はエラーメッセージ付きで一覧へリダイレクトされる() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （saveTaskの「更新対象が既に削除されていた場合」のIllegalArgumentExceptionハンドリング分岐を網羅する）
 
 		//------------準備--------------------------
@@ -332,5 +367,103 @@ class TaskViewControllerTest {
 
 		// タスクが復活して保存されていないこと
 		assertThat(taskService.getTaskById(deletedId)).isEmpty();
+	}
+
+	@Test
+	@Order(15)
+	void 存在しない親タスクIDを指定して保存するとエラーメッセージ付きでフォームが再表示される() throws Exception {
+
+		// （saveTaskの「親タスク関連のバリデーションエラー」catch分岐
+		//   ＝一覧へ飛ばさずフォームを再表示する方のハンドリングが未網羅だったため）
+
+		//------------準備--------------------------
+
+		long notExistParentId = 999999999L;
+
+		//------------実行 & 比較--------------------------
+
+		// 存在しない親タスクIDを指定して新規作成しようとすると、
+		// 「Task not found」ではなく「親タスクが見つかりません」の例外がスローされ、
+		// 一覧へリダイレクトされず、入力内容を保持したままフォームが再表示されること
+		mockMvc.perform(post("/tasks")
+				.param("title", "存在しない親タスク指定タスク")
+				.param("parentTaskId", String.valueOf(notExistParentId))
+				.param("sortOrder", "0"))
+				.andExpect(status().isOk())
+				.andExpect(view().name("tasks/form"))
+				.andExpect(model().attributeExists("errorMessage"))
+				.andExpect(model().attributeExists("parentTaskCandidates"))
+				// 入力内容（タイトル）が保持されたままフォームに表示されること
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("存在しない親タスク指定タスク")));
+
+		// タスクが保存されていないこと
+		assertThat(taskService.getAllTasks()).noneMatch(t -> "存在しない親タスク指定タスク".equals(t.getTitle()));
+	}
+
+	@Test
+	@Order(16)
+	void サブタスクをさらに別タスクの親に指定して保存するとエラーメッセージ付きでフォームが再表示される() throws Exception {
+
+		// （saveTaskの「サブタスクの下にさらにサブタスクを作成することはできません」分岐を網羅するため）
+
+		//------------準備：親タスクとそのサブタスクを用意--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("孫階層確認用の親タスク");
+		Task savedParent = taskService.saveTask(parent);
+
+		Task child = new Task();
+		child.setTitle("孫階層確認用の子タスク");
+		child.setParentTaskId(savedParent.getId());
+		Task savedChild = taskService.saveTask(child);
+
+		//------------実行 & 比較--------------------------
+
+		// 既にサブタスクである「子タスク」をさらに親タスクとして指定して新規作成しようとすると、
+		// 1階層制限違反のエラーとなり、一覧へ飛ばされずフォームが再表示されること
+		mockMvc.perform(post("/tasks")
+				.param("title", "孫タスクになろうとするタスク")
+				.param("parentTaskId", String.valueOf(savedChild.getId()))
+				.param("sortOrder", "0"))
+				.andExpect(status().isOk())
+				.andExpect(view().name("tasks/form"))
+				.andExpect(model().attributeExists("errorMessage"))
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("孫タスクになろうとするタスク")));
+	}
+
+	@Test
+	@Order(17)
+	void 既にサブタスクを持つタスクを別タスクのサブタスクにしようとするとエラーメッセージ付きでフォームが再表示される() throws Exception {
+
+		// （saveTaskの「既にサブタスクを持つタスクを別のタスクのサブタスクにすることはできません」分岐を網羅するため）
+
+		//------------準備：サブタスクを持つ親タスクと、別の親タスク候補を用意--------------------------
+
+		Task parentWithChild = new Task();
+		parentWithChild.setTitle("サブタスク保持確認用の親タスク");
+		Task savedParentWithChild = taskService.saveTask(parentWithChild);
+
+		Task child = new Task();
+		child.setTitle("サブタスク保持確認用の子タスク");
+		child.setParentTaskId(savedParentWithChild.getId());
+		taskService.saveTask(child);
+
+		Task anotherParent = new Task();
+		anotherParent.setTitle("別の親タスク候補");
+		Task savedAnotherParent = taskService.saveTask(anotherParent);
+
+		//------------実行 & 比較--------------------------
+
+		// 既にサブタスクを持つ「savedParentWithChild」を、別タスクのサブタスクにしようとすると
+		// エラーとなり、一覧へ飛ばされずフォームが再表示されること
+		mockMvc.perform(post("/tasks")
+				.param("id", String.valueOf(savedParentWithChild.getId()))
+				.param("title", "サブタスク保持確認用の親タスク")
+				.param("parentTaskId", String.valueOf(savedAnotherParent.getId()))
+				.param("sortOrder", "0"))
+				.andExpect(status().isOk())
+				.andExpect(view().name("tasks/form"))
+				.andExpect(model().attributeExists("errorMessage"))
+				.andExpect(model().attributeExists("parentTaskCandidates"));
 	}
 }

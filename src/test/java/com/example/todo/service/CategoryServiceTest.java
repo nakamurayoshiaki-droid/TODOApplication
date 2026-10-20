@@ -2,7 +2,11 @@ package com.example.todo.service;
 
 import com.example.todo.model.Category;
 import com.example.todo.model.Task;
+
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,12 +19,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * CategoryService の単体テストクラス。
  * <p>
- * 指示書「カテゴリ機能仕様」に基づき、カテゴリ名の重複チェック・
- * 削除時のタスク側「カテゴリなし」への更新を検証する。
+ * カテゴリ名の重複チェック・削除時のタスク側「カテゴリなし」への更新を検証する。
  * </p>
  */
 @SpringBootTest
 @Transactional
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class CategoryServiceTest {
 
     @Autowired
@@ -34,6 +38,7 @@ class CategoryServiceTest {
     private EntityManager entityManager;
 
     @Test
+    @Order(1)
     void カテゴリを新規作成できること() {
 
         //------------準備--------------------------
@@ -54,6 +59,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @Order(2)
     void 同名のカテゴリを作成しようとすると例外がスローされる() {
 
         //------------準備--------------------------
@@ -72,6 +78,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @Order(3)
     void カテゴリを削除するとそのカテゴリに属していたタスクがカテゴリなしになる() {
 
         //------------準備--------------------------
@@ -104,9 +111,9 @@ class CategoryServiceTest {
     }
 
     @Test
+    @Order(4)
     void 既存カテゴリを自分以外と重複しない名前に更新できること() {
 
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （saveCategoryの更新時分岐 existsByNameAndIdNot が未網羅だったため）
 
         //------------準備--------------------------
@@ -132,9 +139,9 @@ class CategoryServiceTest {
     }
 
     @Test
+    @Order(5)
     void 既存カテゴリを別カテゴリと同名に更新しようとすると例外がスローされる() {
 
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （saveCategoryの更新時分岐 existsByNameAndIdNot のtrue側が未網羅だったため）
 
         //------------準備--------------------------
@@ -161,9 +168,9 @@ class CategoryServiceTest {
     }
 
     @Test
+    @Order(6)
     void 既存カテゴリを自分自身と同じ名前のまま更新してもエラーにならないこと() {
 
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （existsByNameAndIdNotは更新対象自身のIDを除外するため、名前を変更しない更新は
         // 重複とみなされないことを確認する）
 
@@ -193,6 +200,7 @@ class CategoryServiceTest {
     }
 
     @Test
+    @Order(7)
     void 存在しないIDでカテゴリを取得しようとすると空のOptionalが返る() {
 
         //------------準備--------------------------

@@ -13,7 +13,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 /**
  * カテゴリのビュー関連の操作を扱うコントローラ。
  * <p>
- * 指示書「カテゴリ機能仕様」の「カテゴリの新規作成・削除ができる管理画面」に対応する、
+ * 「カテゴリの新規作成・削除ができる管理画面」に対応する、
  * 簡易的なCRUD画面（一覧表示・新規作成・削除）を提供する。ベースパスは {@code /categories}。
  * </p>
  */

@@ -59,7 +59,7 @@ public class Task {
     @Enumerated(EnumType.STRING)
     // 優先度カラムは null 許容不可、長さ制限を設定
     @Column(nullable = false, length = 20)
-    // デフォルト値を MEDIUM に設定（指示書の「優先度未設定時はMEDIUM扱い」に対応）
+    // デフォルト値を MEDIUM に設定
     private Priority priority = Priority.MEDIUM;
 
     // タスクのソート順
@@ -69,10 +69,33 @@ public class Task {
 
     // タスクが属するカテゴリのID（category.id への外部キー）。
     // 「カテゴリなし」を許容するため nullable（未設定＝null が正しい値）。
-    // タスクは0または1個のカテゴリに属する（多対多にはしない）という指示書の仕様に合わせ、
-    // @ManyToOne ではなく単純な外部キー値として保持する（既存の status/priority と同様の単純さを優先）。
     @Column(name = "category_id")
     private Long categoryId;
+
+    // このタスクが「どの親タスクのサブタスクか」を表すID
+    // 「親タスクなし（通常のトップレベルタスク）」を許容するため nullable（未設定＝null が正しい値）。
+    // サブタスクは1階層までのため、このフィールドを持つタスク（＝サブタスク）に対して
+    // さらに parentTaskId を設定することはバリデーションで禁止する。
+    @Column(name = "parent_task_id")
+    private Long parentTaskId;
+
+    // このタスクが「繰り返しタスク」かどうか、繰り返すならどの頻度かを表す
+    // デフォルト値を NONE（繰り返しなし）に設定する
+    @Enumerated(EnumType.STRING)
+    @Column(name = "recurrence_rule", nullable = false, length = 20)
+    private RecurrenceRule recurrenceRule = RecurrenceRule.NONE;
+
+    // サブタスクの進捗表示用フィールド（DBには保存しない）。
+    // 一覧画面でトップレベルタスクを表示する際、TaskService側でサブタスクを集計して
+    // この2つのフィールドに値を詰めてから返す。
+    // サブタスクが0件、またはすべてCANCELLEDの場合は subtaskTotalCount が 0 になる
+    // （分母0件の除算を避けるため、進捗表示が必要かどうかの判定は呼び出し側＝テンプレート/JS側で
+    // 「subtaskTotalCount > 0」を見て行う想定）。
+    @Transient
+    private Integer subtaskDoneCount;
+
+    @Transient
+    private Integer subtaskTotalCount;
 
     // タスクの期限（日付のみ、時刻は持たない。未設定＝期限なしを許容するのでnullable）
     @Column(name = "due_date")
@@ -114,8 +137,10 @@ public class Task {
         // nullチェックを行い、ソート順とステータスのデフォルト値を設定
         if (this.sortOrder == null) this.sortOrder = 0;
         if (this.status == null) this.status = TaskStatus.TODO;
-        // 優先度が未設定の場合はMEDIUMを補完する（指示書の「優先度未設定時はMEDIUM扱い」に対応）
+        // 優先度が未設定の場合はMEDIUMを補完する
         if (this.priority == null) this.priority = Priority.MEDIUM;
+        // 繰り返し設定が未設定の場合はNONE（繰り返しなし）を補完する
+        if (this.recurrenceRule == null) this.recurrenceRule = RecurrenceRule.NONE;
     }
 
     /**
@@ -216,6 +241,55 @@ public class Task {
     /** 所属カテゴリのIDを設定します。カテゴリなしにする場合は null を設定します。 */
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
+    }
+
+    /** 親タスクのIDを返します。親タスクなし（トップレベルタスク）の場合は null。 */
+    public Long getParentTaskId() {
+        return parentTaskId;
+    }
+
+    /** 親タスクのIDを設定します。親タスクなしにする場合は null を設定します。 */
+    public void setParentTaskId(Long parentTaskId) {
+        this.parentTaskId = parentTaskId;
+    }
+
+    /** 繰り返し設定を返します。未設定時は {@link RecurrenceRule#NONE} が補完されます。 */
+    public RecurrenceRule getRecurrenceRule() {
+        return recurrenceRule;
+    }
+
+    /** 繰り返し設定を設定します。 */
+    public void setRecurrenceRule(RecurrenceRule recurrenceRule) {
+        this.recurrenceRule = recurrenceRule;
+    }
+
+    /** サブタスクのうち完了（DONE）している件数を返します（進捗表示用。未集計の場合は null）。 */
+    public Integer getSubtaskDoneCount() {
+        return subtaskDoneCount;
+    }
+
+    /** サブタスクのうち完了（DONE）している件数を設定します（{@code TaskService} が集計結果を詰めるために使用）。 */
+    public void setSubtaskDoneCount(Integer subtaskDoneCount) {
+        this.subtaskDoneCount = subtaskDoneCount;
+    }
+
+    /** サブタスクの全件数（CANCELLEDを除く。進捗表示用。未集計の場合は null）を返します。 */
+    public Integer getSubtaskTotalCount() {
+        return subtaskTotalCount;
+    }
+
+    /** サブタスクの全件数（CANCELLEDを除く）を設定します（{@code TaskService} が集計結果を詰めるために使用）。 */
+    public void setSubtaskTotalCount(Integer subtaskTotalCount) {
+        this.subtaskTotalCount = subtaskTotalCount;
+    }
+
+    /**
+     * このタスクにサブタスクが存在するかどうかを返します（一覧画面で展開アイコンを表示するかの判定に使用）。
+     *
+     * @return {@code subtaskTotalCount} が集計済みで1件以上ある場合 true
+     */
+    public boolean isHasSubtasks() {
+        return subtaskTotalCount != null && subtaskTotalCount > 0;
     }
 
     /** 作成日時を返します。 */

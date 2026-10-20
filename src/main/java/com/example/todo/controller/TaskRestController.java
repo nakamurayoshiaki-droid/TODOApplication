@@ -27,7 +27,7 @@ public class TaskRestController {
     private final TaskService taskService;
 
     /**
-     * 指示書「フィルタリング・検索仕様」に基づき、複数条件（AND結合）でタスクを検索するエンドポイント。
+     * 複数条件（AND結合）でタスクを検索するエンドポイント。
      * <p>
      * 全てのパラメータは任意で、未指定または空文字の場合はその条件で絞り込まない（「すべて」扱い）。
      * 一覧画面（{@code list.html}）からのAjax呼び出し専用で、画面全体を再読み込みせずに
@@ -94,7 +94,7 @@ public class TaskRestController {
      * タスクの状態を更新するエンドポイント。
      * <p>
      * リクエストはパスパラメータでタスクIDを受け取り、リクエストボディのJSONに含まれる
-     * {@code status} フィールドを使って状態を更新します。例: {@code {"status":"COMPLETED"}}
+     * {@code status} フィールドを使って状態を更新します。例: {@code {"status":"DONE"}}
      * </p>
      *
      * @param id      更新対象のタスクID
@@ -136,7 +136,23 @@ public class TaskRestController {
     }
 
     /**
-     * 指示書「並び替え仕様」に基づき、ドラッグ＆ドロップ後の並び順をまとめて受け取り、永続化するエンドポイント。
+     * 指定した親タスクに紐づくサブタスクの一覧を取得するエンドポイント。
+     * <p>
+     * 一覧画面（{@code list.html}）の親タスク行にある展開アイコンをクリックした際、
+     * jQueryのAjaxで呼び出され、アコーディオン表示されるサブタスク一覧を取得するために使用する
+     * </p>
+     *
+     * @param id 親タスクのID
+     * @return サブタスクの配列（JSON）。親タスクが存在しない場合は404
+     */
+    @GetMapping("/{id}/subtasks")
+    public ResponseEntity<List<Task>> getSubtasks(@PathVariable Long id) {
+        List<Task> subtasks = taskService.getSubtasks(id);
+        return ResponseEntity.ok(subtasks);
+    }
+
+    /**
+     * ドラッグ＆ドロップ後の並び順をまとめて受け取り、永続化するエンドポイント。
      * <p>
      * リクエストボディには、ドロップ後の並び順どおりのタスクIDの配列を
      * {@code {"taskIds": [3, 1, 2, ...]}} の形式で渡す。

@@ -3,7 +3,10 @@ package com.example.todo.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -16,16 +19,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * ここでは、それらのsetterが単体で正しく動作することを確認する。
  * </p>
  * <p>
- * ※このクラス自体、指示書に記載のない観点：カバレッジ向上のため追加。
  * （setCreatedAt/setUpdatedAt等、アプリ内から未使用のgetter/setterを網羅する目的）
  * </p>
  */
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class TaskTest {
 
 	@Test
+	@Order(1)
 	void 各getter_setterに設定した値がそのまま取得できる() {
-
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 
 		//------------準備--------------------------
 
@@ -63,9 +65,8 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(2)
 	void デフォルトコンストラクタ生成直後はステータスがTODO_ソート順が0である() {
-
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 
 		//------------準備 & 実行--------------------------
 
@@ -82,12 +83,15 @@ class TaskTest {
 		assertThat(task.getUpdatedAt()).isNull();
 		assertThat(task.getCompletedAt()).isNull();
 		assertThat(task.getDueDate()).isNull();
+		// 親タスクなし・繰り返しなしが初期値であること
+		assertThat(task.getParentTaskId()).isNull();
+		assertThat(task.getRecurrenceRule()).isEqualTo(RecurrenceRule.NONE);
 	}
 
 	@Test
+	@Order(3)
 	void onCreateでsortOrderとstatusとpriorityがnullの場合はデフォルト値が補完される() {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （onCreate内のnullチェック分岐 if(sortOrder==null) / if(status==null) / if(priority==null) は、
 		// フィールド初期化子により通常フローでは常にfalseとなり真の分岐が未検証だったため、
 		// setSortOrder(null)/setStatus(null)/setPriority(null)により意図的にnullの状態を作って検証する）
@@ -117,9 +121,9 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(4)
 	void onCreateでsortOrderとstatusとpriorityが非nullの場合はそのままの値が維持される() {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （if(sortOrder==null)/if(status==null)/if(priority==null)の偽側の分岐も明示的に検証する）
 
 		//------------準備--------------------------
@@ -141,11 +145,138 @@ class TaskTest {
 		assertThat(task.getPriority()).isEqualTo(Priority.LOW);
 	}
 
+	
+	// ---------------------------------------------------------------
+	//  parentTaskId / recurrenceRule のテスト
+	// ---------------------------------------------------------------
+
+	@Test
+	@Order(5)
+	void onCreateでrecurrenceRuleがnullの場合はNONEが補完される() {
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setRecurrenceRule(null);
+
+		//------------実行--------------------------
+
+		task.onCreate();
+
+		//------------比較--------------------------
+
+		assertThat(task.getRecurrenceRule()).isEqualTo(RecurrenceRule.NONE);
+	}
+
+	@Test
+	@Order(6)
+	void onCreateでrecurrenceRuleが非nullの場合はそのままの値が維持される() {
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setRecurrenceRule(RecurrenceRule.WEEKLY);
+
+		//------------実行--------------------------
+
+		task.onCreate();
+
+		//------------比較--------------------------
+
+		assertThat(task.getRecurrenceRule()).isEqualTo(RecurrenceRule.WEEKLY);
+	}
+
+	@Test
+	@Order(7)
+	void parentTaskIdと繰り返し設定のgetter_setterに設定した値がそのまま取得できる() {
+
+		//------------準備 & 実行--------------------------
+
+		Task task = new Task();
+		task.setParentTaskId(10L);
+		task.setRecurrenceRule(RecurrenceRule.MONTHLY);
+
+		//------------比較--------------------------
+
+		assertThat(task.getParentTaskId()).isEqualTo(10L);
+		assertThat(task.getRecurrenceRule()).isEqualTo(RecurrenceRule.MONTHLY);
+
+		//------------実行（親タスクなしに戻す）--------------------------
+
+		task.setParentTaskId(null);
+
+		//------------比較--------------------------
+
+		assertThat(task.getParentTaskId()).isNull();
+	}
+
+	// ---------------------------------------------------------------
+	// 進捗集計フィールド・isHasSubtasks() のテスト
+	// ---------------------------------------------------------------
+
+	@Test
+	@Order(8)
+	void サブタスク進捗のgetter_setterに設定した値がそのまま取得できる() {
+
+		//------------準備 & 実行--------------------------
+
+		Task task = new Task();
+		task.setSubtaskDoneCount(2);
+		task.setSubtaskTotalCount(5);
+
+		//------------比較--------------------------
+
+		assertThat(task.getSubtaskDoneCount()).isEqualTo(2);
+		assertThat(task.getSubtaskTotalCount()).isEqualTo(5);
+	}
+
+	@Test
+	@Order(9)
+	void subtaskTotalCountが未集計_nullの場合isHasSubtasksはfalseを返す() {
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+
+		//------------実行 & 比較--------------------------
+
+		assertThat(task.isHasSubtasks()).isFalse();
+	}
+
+	@Test
+	@Order(10)
+	void subtaskTotalCountが0の場合isHasSubtasksはfalseを返す() {
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setSubtaskTotalCount(0);
+
+		//------------実行 & 比較--------------------------
+
+		assertThat(task.isHasSubtasks()).isFalse();
+	}
+
+	@Test
+	@Order(11)
+	void subtaskTotalCountが1以上の場合isHasSubtasksはtrueを返す() {
+
+		//------------準備--------------------------
+
+		Task task = new Task();
+		task.setSubtaskTotalCount(1);
+
+		//------------実行 & 比較--------------------------
+
+		assertThat(task.isHasSubtasks()).isTrue();
+	}
+
 	// ---------------------------------------------------------------
 	// 期限切れ／当日期限判定（isOverdue / isDueToday）のテスト
 	// ---------------------------------------------------------------
 
 	@Test
+	@Order(12)
 	void 期限が基準日より過去でステータスがDONE_CANCELLED以外なら期限切れと判定される() {
 
 		//------------準備--------------------------
@@ -162,6 +293,7 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(13)
 	void 期限が基準日と同じ場合は当日期限と判定され期限切れにはならない() {
 
 		//------------準備--------------------------
@@ -178,6 +310,7 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(14)
 	void 期限が基準日より未来なら期限切れでも当日期限でもない() {
 
 		//------------準備--------------------------
@@ -194,6 +327,7 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(15)
 	void 期限が過去でもステータスがDONEなら期限切れと判定されない() {
 
 		//------------準備--------------------------
@@ -209,6 +343,7 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(16)
 	void 期限が過去でもステータスがCANCELLEDなら期限切れと判定されない() {
 
 		//------------準備--------------------------
@@ -224,6 +359,7 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(17)
 	void 期限が同日でもステータスがDONE_CANCELLEDなら当日期限と判定されない() {
 
 		//------------準備--------------------------
@@ -244,6 +380,7 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(18)
 	void 期限が未設定の場合は期限切れにも当日期限にもならない() {
 
 		//------------準備--------------------------
@@ -258,6 +395,7 @@ class TaskTest {
 	}
 
 	@Test
+	@Order(19)
 	void 引数なしのisOverdueとisDueTodayは現在日時を基準に判定する() {
 
 		// ※ isOverdue()/isDueToday()（引数なし版）は、Thymeleafテンプレートから

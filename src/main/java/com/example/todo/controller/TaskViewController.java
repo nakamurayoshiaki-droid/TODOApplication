@@ -2,6 +2,7 @@ package com.example.todo.controller;
 
 import com.example.todo.model.Category;
 import com.example.todo.model.Priority;
+import com.example.todo.model.RecurrenceRule;
 import com.example.todo.model.Task;
 import com.example.todo.model.TaskStatus;
 import com.example.todo.service.CategoryService;
@@ -66,19 +67,31 @@ public class TaskViewController {
 
 	/**
 	 * 新規タスク作成フォームを表示します。
+	 * <p>
+	 * {@code parentTaskId} が指定された場合、そのタスクのサブタスクとして作成するフォームとして
+	 * 表示する（一覧画面の「＋サブタスク」ボタンから遷移してきた場合）。「親タスク」選択欄に
+	 * 該当タスクが事前選択された状態になる。
+	 * </p>
 	 *
-	 * @param model ビューに渡すモデル（空の Task とステータス一覧を含む）
+	 * @param parentTaskId 親タスクとして事前選択するタスクID（任意。一覧画面の「＋サブタスク」ボタンから渡される）
+	 * @param model        ビューに渡すモデル（空の Task とステータス一覧を含む）
 	 * @return 表示するテンプレート名
 	 */
 	@GetMapping("/new")
-	public String newTaskForm(Model model) {
+	public String newTaskForm(@RequestParam(required = false) Long parentTaskId, Model model) {
 		// 期限（dueDate）はTaskエンティティ上 nullable（@NotNull等の必須制約なし）で、
 		// 「期限なし」を許容する任意項目のため、新規作成フォームの初期値は敢えて設定せず空欄のままにする。
 		Task task = new Task();
+		if (parentTaskId != null) {
+			task.setParentTaskId(parentTaskId);
+		}
 		model.addAttribute("task", task);
 		model.addAttribute("statuses", TaskStatus.values());
 		model.addAttribute("priorities", Priority.values());
 		model.addAttribute("categories", categoryService.getAllCategories());
+		model.addAttribute("recurrenceRules", RecurrenceRule.values());
+		// 親タスク選択欄の候補。編集対象自身は候補から除外する
+		model.addAttribute("parentTaskCandidates", taskService.getParentTaskCandidates(null));
 		return "tasks/form";
 	}
 
@@ -101,6 +114,9 @@ public class TaskViewController {
 			model.addAttribute("statuses", TaskStatus.values());
 			model.addAttribute("priorities", Priority.values());
 			model.addAttribute("categories", categoryService.getAllCategories());
+			model.addAttribute("recurrenceRules", RecurrenceRule.values());
+			// 親タスク選択欄の候補。編集対象自身は候補から除外する
+			model.addAttribute("parentTaskCandidates", taskService.getParentTaskCandidates(id));
 			return "tasks/form";
 		}).orElseGet(() -> {
 			// 編集リンクを開いた時点で対象タスクが既に削除されていた場合は、
@@ -131,6 +147,8 @@ public class TaskViewController {
 			model.addAttribute("statuses", TaskStatus.values());
 			model.addAttribute("priorities", Priority.values());
 			model.addAttribute("categories", categoryService.getAllCategories());
+			model.addAttribute("recurrenceRules", RecurrenceRule.values());
+			model.addAttribute("parentTaskCandidates", taskService.getParentTaskCandidates(task.getId()));
 			return "tasks/form";
 		}
 
@@ -143,9 +161,21 @@ public class TaskViewController {
 			// タスクを保存
 			taskService.saveTask(task);
 		} catch (IllegalArgumentException e) {
-			// 保存対象のタスクが既に削除されていた場合は、エラーメッセージ付きで一覧画面へ戻す
-			redirectAttributes.addFlashAttribute("errorMessage", "対象のタスクは既に削除されているため、保存できませんでした。");
-			return "redirect:/tasks";
+			// 更新対象のタスクが既に削除されていた場合は、従来どおりエラーメッセージ付きで一覧画面へ戻す
+			// （TaskService#saveTaskがfindById(...).orElseThrow(...)で投げる「Task not found: 」で始まる例外）
+			if (e.getMessage() != null && e.getMessage().startsWith("Task not found")) {
+				redirectAttributes.addFlashAttribute("errorMessage", "対象のタスクは既に削除されているため、保存できませんでした。");
+				return "redirect:/tasks";
+			}
+			// 親タスク関連のバリデーションエラー（1階層制限違反・親タスク不在など）は、
+			// 一覧へ飛ばさずフォームを再表示し、入力内容を保持したままエラー内容を伝える
+			model.addAttribute("errorMessage", e.getMessage());
+			model.addAttribute("statuses", TaskStatus.values());
+			model.addAttribute("priorities", Priority.values());
+			model.addAttribute("categories", categoryService.getAllCategories());
+			model.addAttribute("recurrenceRules", RecurrenceRule.values());
+			model.addAttribute("parentTaskCandidates", taskService.getParentTaskCandidates(task.getId()));
+			return "tasks/form";
 		}
 
 		// 保存後はタスク一覧ページにリダイレクト

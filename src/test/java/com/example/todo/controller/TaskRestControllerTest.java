@@ -1,6 +1,9 @@
 package com.example.todo.controller;
 
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,12 +27,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * TaskRestController の REST API を検証するテストクラス。
  * <p>
- * 指示書「フェーズ1」に基づき、ステータス更新API・削除APIが 実際にDBへ正しく反映されるかをMockMvc経由で確認する。
+ * ステータス更新API・削除APIが 実際にDBへ正しく反映されるかをMockMvc経由で確認する。
  * </p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class TaskRestControllerTest {
 
 	// MockMvcを@Autowiredで注入することで、Spring Bootのテスト環境でHTTPリクエストをシミュレートできる
@@ -45,6 +49,7 @@ class TaskRestControllerTest {
 	private EntityManager entityManager;
 
 	@Test
+	@Order(1)
 	void PATCHでステータスをDONEに変更するとDBのstatusとcompletedAtが更新される() throws Exception {
 
 		// ------------準備--------------------------
@@ -81,6 +86,7 @@ class TaskRestControllerTest {
 	}
 
 	@Test
+	@Order(2)
 	void DELETEでタスクを削除すると実際にデータベースから削除される() throws Exception {
 
 		// ------------準備--------------------------
@@ -106,9 +112,9 @@ class TaskRestControllerTest {
 	}
 
 	@Test
+	@Order(3)
 	void PATCHで不正なステータス値を送信すると400が返りDBの状態は変更されない() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （updateStatusの不正値ハンドリング分岐を網羅する）
 
 		// ------------準備--------------------------
@@ -132,9 +138,9 @@ class TaskRestControllerTest {
 	}
 
 	@Test
+	@Order(4)
 	void PATCHでstatusキーが存在しないリクエストボディを送信すると400が返りDBの状態は変更されない() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （payload.get("status")がnullの場合、TaskStatus.valueOf(null)はIllegalArgumentExceptionではなく
 		// NullPointerExceptionを投げるため、catch節では捕捉できず意図せず500になる不具合を防止する分岐を検証する）
 
@@ -147,9 +153,7 @@ class TaskRestControllerTest {
 		// ------------実行--------------------------
 
 		// statusキーを含まない空のJSONオブジェクトを送信する
-		mockMvc.perform(patch("/api/tasks/{id}/status", saved.getId())
-				.contentType("application/json")
-				.content("{}"))
+		mockMvc.perform(patch("/api/tasks/{id}/status", saved.getId()).contentType("application/json").content("{}"))
 				.andExpect(status().isBadRequest());
 
 		// ------------比較--------------------------
@@ -162,9 +166,9 @@ class TaskRestControllerTest {
 	}
 
 	@Test
+	@Order(5)
 	void PATCHで存在しないIDのステータスを更新しようとすると404が返る() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （updateStatusの存在しないIDに対する異常系分岐を網羅する）
 
 		// ------------準備--------------------------
@@ -179,12 +183,11 @@ class TaskRestControllerTest {
 	}
 
 	@Test
+	@Order(6)
 	void DELETEで存在しないIDを削除しようとしても例外にならず200が返る() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （Spring Data JPAのdeleteByIdは対象が存在しなくても例外を投げ無い仕様。
-		//　それが変更されていない事を念のため確認する。
-		
+		// それが変更されていない事を念のため確認する。
 
 		// ------------準備--------------------------
 
@@ -196,9 +199,9 @@ class TaskRestControllerTest {
 	}
 
 	@Test
+	@Order(7)
 	void DELETE後に一覧画面から削除されたタスクの表示が即座に消える() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （「削除が一覧に即座に反映される」という観点を検証する）
 
 		// ------------準備--------------------------
@@ -223,9 +226,9 @@ class TaskRestControllerTest {
 	}
 
 	@Test
+	@Order(8)
 	void PATCHでステータスを変更すると一覧画面の表示に即座に反映される() throws Exception {
 
-		// ※指示書に記載のない観点：カバレッジ向上のため追加
 		// （「ステータス変更が一覧に即座に反映される」という観点を検証する）
 
 		// ------------準備--------------------------
@@ -244,5 +247,49 @@ class TaskRestControllerTest {
 		// 一覧画面にis-doneクラスが付与されること
 		mockMvc.perform(get("/tasks")).andExpect(status().isOk())
 				.andExpect(content().string(org.hamcrest.Matchers.containsString("is-done")));
+	}
+
+	// ================= GET /api/tasks/{id}/subtasks =================
+
+	@Test
+	@Order(9)
+	void GETで親タスクに紐づくサブタスクのみがJSONで返る() throws Exception {
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("API経由_親タスク_サブタスク取得確認");
+		Task savedParent = taskService.saveTask(parent);
+
+		Task child = new Task();
+		child.setTitle("API経由_子タスク_取得確認");
+		child.setParentTaskId(savedParent.getId());
+		taskService.saveTask(child);
+
+		Task other = new Task();
+		other.setTitle("API経由_無関係タスク");
+		taskService.saveTask(other);
+
+		// ------------実行 & 比較--------------------------
+
+		mockMvc.perform(get("/api/tasks/{id}/subtasks", savedParent.getId())).andExpect(status().isOk())
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("API経由_子タスク_取得確認")))
+				.andExpect(content()
+						.string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("API経由_無関係タスク"))));
+	}
+
+	@Test
+	@Order(10)
+	void GETで存在しない親タスクIDのサブタスクを取得しようとすると404が返る() throws Exception {
+
+		// （getSubtasksの「親タスクが存在しない場合」の異常系分岐をAPIレベルで網羅する）
+
+		// ------------準備--------------------------
+
+		long notExistId = 999999999L;
+
+		// ------------実行 & 比較--------------------------
+
+		mockMvc.perform(get("/api/tasks/{id}/subtasks", notExistId)).andExpect(status().isNotFound());
 	}
 }

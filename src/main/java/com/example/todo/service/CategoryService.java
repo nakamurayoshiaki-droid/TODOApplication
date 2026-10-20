@@ -13,7 +13,7 @@ import java.util.Optional;
 /**
  * カテゴリに関するビジネスロジックを提供するサービスクラス。
  * <p>
- * 指示書「カテゴリ機能仕様」に基づき、カテゴリの取得・作成・削除を行う。
+ * カテゴリの取得・作成・削除を行う。
  * カテゴリ名の重複チェックはDBの一意制約に任せず、事前にサービス層で行うことで、
  * 素の500エラーではなく分かりやすいバリデーションエラーとして呼び出し側へ伝える。
  * </p>
@@ -31,8 +31,6 @@ public class CategoryService {
      *
      * @return カテゴリのリスト
      */
-    // 指示書に明記のない並び順だったため仕様書作成者に確認済み
-    // カテゴリにもsort_orderを持たせて昇順表示するのが正式な設計だが、そこまでせず名前の昇順（50音順）でもOK」とのことで、現状の実装（名前昇順）のまま確定。
     @Transactional(readOnly = true)
     public List<Category> getAllCategories() {
         return categoryRepository.findAll(org.springframework.data.domain.Sort.by("name").ascending());
@@ -52,8 +50,7 @@ public class CategoryService {
     /**
      * カテゴリを新規作成する。
      * <p>
-     * 名前が既存のカテゴリと重複する場合は {@link IllegalArgumentException} をスローする
-     * （指示書「name: 必須（重複不可、上限20文字）」に対応）。
+     * 名前が既存のカテゴリと重複する場合は {@link IllegalArgumentException} をスローする。
      * </p>
      *
      * @param category 保存対象のカテゴリ

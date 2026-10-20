@@ -2,7 +2,11 @@ package com.example.todo.controller;
 
 import com.example.todo.model.Category;
 import com.example.todo.service.CategoryService;
+
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,13 +24,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * CategoryViewController の画面遷移・保存処理を検証するテストクラス。
  * <p>
- * 指示書「カテゴリ機能仕様」に基づき、カテゴリの新規作成・削除が
- * 実際にDBへ正しく反映されるかをMockMvc経由で確認する。
+ * カテゴリの新規作成・削除が実際にDBへ正しく反映されるかをMockMvc経由で確認する。
  * </p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class CategoryViewControllerTest {
 
     @Autowired
@@ -39,6 +43,7 @@ class CategoryViewControllerTest {
     private EntityManager entityManager;
 
     @Test
+    @Order(1)
     void GETでカテゴリ一覧画面が表示できること() throws Exception {
 
         // ------------実行 & 比較--------------------------
@@ -48,6 +53,7 @@ class CategoryViewControllerTest {
     }
 
     @Test
+    @Order(2)
     void POSTでカテゴリを新規作成すると一覧に反映される() throws Exception {
 
         // ------------実行--------------------------
@@ -64,6 +70,7 @@ class CategoryViewControllerTest {
     }
 
     @Test
+    @Order(3)
     void POSTで名前が空のカテゴリを作成しようとするとエラーになり保存されない() throws Exception {
 
         // ------------実行--------------------------
@@ -79,6 +86,7 @@ class CategoryViewControllerTest {
     }
 
     @Test
+    @Order(4)
     void POSTでカテゴリを削除するとそのカテゴリがDBから削除される() throws Exception {
 
         // ※テスト名・観点の重複整理：
@@ -106,9 +114,9 @@ class CategoryViewControllerTest {
     }
 
     @Test
+    @Order(5)
     void POSTで既存カテゴリと同名のカテゴリを作成しようとするとエラーメッセージ付きで一覧が再表示される() throws Exception {
 
-        // ※指示書に記載のない観点：カバレッジ向上のため追加
         // （saveCategoryの名前重複によるIllegalArgumentExceptionハンドリング分岐を網羅する）
 
         // ------------準備--------------------------

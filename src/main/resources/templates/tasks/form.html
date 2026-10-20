@@ -16,6 +16,9 @@
         <h1 th:text="${task.id == null ? 'タスク新規追加' : 'タスク編集'}">タスク追加</h1>
     </header>
     <main class="card">
+		<!-- 親タスクのバリデーションエラー（1階層制限違反等）表示欄 -->
+        <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+
 		<!-- タスクフォーム -->
         <form th:action="@{/tasks}" th:object="${task}" method="post">
             <input type="hidden" th:field="*{id}">
@@ -59,6 +62,34 @@
                 </select>
             </div>
 
+			<!-- 親タスクの選択欄: 選択すると、このタスクは選んだタスクのサブタスクになる。
+				候補はトップレベルタスク全体（自分自身を除く）であり、
+			     既にサブタスクを持つタスク（他タスクの親）も除外されない
+			     （1つの親タスクに複数のサブタスクを紐づけることは許容されるため。
+			     TaskService#getParentTaskCandidatesのJavadoc参照）。
+			     「孫階層」を作る操作（既にサブタスクを持つタスクを別の親の下に入れる、
+			     または既にサブタスクである親を選ぶ）はTaskService#saveTask側のバリデーションで
+			     保存時に拒否される） -->
+            <div class="form-group">
+                <label for="parentTaskId">親タスク</label>
+                <select id="parentTaskId" th:field="*{parentTaskId}" class="form-control">
+                    <option value="">親タスクなし</option>
+                    <option th:each="pt : ${parentTaskCandidates}" th:value="${pt.id}" th:text="${pt.title}"></option>
+                </select>
+            </div>
+
+			<!-- 繰り返し設定の選択欄: NONE以外を選ぶと、このタスクをDONEにした瞬間、次回期日を持つ新しいタスクが自動生成される。
+			     サブタスク（親タスクを選択した状態）には繰り返し設定を持たせない方針のため
+			     親タスク選択欄で何か選択されている間はこの欄自体を非表示にする 
+			 	　parentTaskIdがnullではない場合、display:none　nullなら空文字となり何も起きない　-->
+            <div class="form-group" id="recurrenceGroup"
+                 th:style="${task.parentTaskId != null} ? 'display:none;' : ''">
+                <label for="recurrenceRule">繰り返し</label>
+                <select id="recurrenceRule" th:field="*{recurrenceRule}" class="form-control">
+                    <option th:each="rr : ${recurrenceRules}" th:value="${rr.name()}" th:text="${rr.displayName}"></option>
+                </select>
+            </div>
+
             <!-- 新規作成時はステータスの選択を表示しない（新規は強制で未着手になるため） -->
             <div class="form-group" th:if="${task.id != null}">
                 <label for="status">ステータス <span class="required">*</span></label>
@@ -76,5 +107,27 @@
         </form>
     </main>
 </div>
+
+<!-- サブタスク（親タスク選択あり）の場合は繰り返し設定欄を表示しない制御。
+     サブタスク自身はrecurrenceRuleを持てず、常にNONEで保存される実装（TaskService#saveTask）に
+     合わせて、親タスク選択欄の値が変わるたびに繰り返し欄の表示・非表示を切り替える。
+     非表示にする際は、誤って以前選択していた値が送信されないようNONEにリセットする。 -->
+<script th:inline="javascript">
+    (function () {
+        const parentTaskSelect = document.getElementById('parentTaskId');
+        const recurrenceGroup = document.getElementById('recurrenceGroup');
+        const recurrenceSelect = document.getElementById('recurrenceRule');
+
+        function toggleRecurrenceVisibility() {
+            const hasParent = parentTaskSelect.value !== '';
+            recurrenceGroup.style.display = hasParent ? 'none' : '';
+            if (hasParent) {
+                recurrenceSelect.value = 'NONE';
+            }
+        }
+
+        parentTaskSelect.addEventListener('change', toggleRecurrenceVisibility);
+    })();
+</script>
 </body>
 </html>
