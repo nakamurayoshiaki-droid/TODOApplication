@@ -40,9 +40,19 @@ public class TaskService {
 	@Transactional(readOnly = true)
 	public List<Task> getAllTasks() {
 		// ソート条件を作成（sortOrderの昇順、次にcreatedAtの昇順）
+		// Sort.Order.asc("sortOrder") は、sortOrderフィールドを昇順でソートすることを指定
+		// Sort.Order.asc("createdAt") は、createdAtフィールドを昇順でソートすることを指定
+		// Sort.by(...) は、複数のソート条件をまとめて指定するためのメソッド
+		// つまり、まずsortOrderで昇順に並べ、その後同じsortOrderの中ではcreatedAtで昇順に並べるという意味
 		Sort sort = Sort.by(Sort.Order.asc("sortOrder"), Sort.Order.asc("createdAt"));
 
 		// トップレベルタスク（parentTaskIdがnull＝サブタスクではない）のみを対象にする
+		// Specification.where(TaskSpecifications.isTopLevel()) は、トップレベルタスクの条件を表すSpecificationを作成
+		// Specificationは、JPAのクエリ条件をプログラム的に組み立てるための仕組みで、ここでは「parentTaskIdがnullである」という条件を表す
+		// これにより、サブタスクは除外され、トップレベルタスクのみが取得される
+		// つまり、トップレベルタスクを取得し、ソート条件に従って並べ替えた結果を返す
+		// さらに、attachSubtaskProgress(tasks) を呼び出して、各トップレベルタスクに紐づくサブタスクの進捗情報を集計して設定する
+		// これにより、トップレベルタスクのリストには、各タスクのサブタスク進捗（subtaskDoneCount / subtaskTotalCount）が含まれる
 		Specification<Task> spec = Specification.where(TaskSpecifications.isTopLevel());
 		List<Task> tasks = taskRepository.findAll(spec, sort);
 		attachSubtaskProgress(tasks);
@@ -110,11 +120,20 @@ public class TaskService {
 		if (topLevelTasks.isEmpty()) {
 			return;
 		}
+		// トップレベルタスクのIDを取得し、List<Long>に変換する
 		List<Long> ids = topLevelTasks.stream().map(Task::getId).collect(Collectors.toList());
+		// まとめて1回のクエリで、指定IDの親タスクに紐づく全サブタスクを取得する
 		List<Task> allSubtasks = taskRepository.findByParentTaskIdIn(ids);
+		// サブタスクを親タスクIDごとにグループ化する
+		// これにより、subtasksByParentはMap<Long, List<Task>>型となり、キーが親タスクID、値がその親タスクに紐づくサブタスクのリストとなる
 		Map<Long, List<Task>> subtasksByParent = allSubtasks.stream()
 				.collect(Collectors.groupingBy(Task::getParentTaskId));
-
+		
+		// 各トップレベルタスクに対して、紐づくサブタスクの進捗を集計して設定する
+		// 進捗 = DONE件数 ÷ （CANCELLEDを除いた全サブタスク件数）
+		// サブタスクが0件、またはすべてCANCELLEDの場合はtotalが0になる
+		// （0除算は呼び出し側＝テンプレート/JSで「total > 0」を見て回避する）
+		// subtasksByParent.getOrDefault(task.getId(), List.of()) は、親タスクIDに紐づくサブタスクのリストを取得する
 		for (Task task : topLevelTasks) {
 			List<Task> subtasks = subtasksByParent.getOrDefault(task.getId(), List.of());
 			// 進捗 = DONE件数 ÷ （CANCELLEDを除いた全サブタスク件数）。
@@ -260,6 +279,8 @@ public class TaskService {
 		Task task = taskRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("Task not found: " + id));
 
+		// ステータスを更新し、完了日時を解決する
+		// resolveCompletedAtメソッドは、ステータスの変化前後を比較して完了日時を決定する
 		TaskStatus oldStatus = task.getStatus();
 		task.setStatus(status);
 		task.setCompletedAt(resolveCompletedAt(oldStatus, status, task.getCompletedAt()));

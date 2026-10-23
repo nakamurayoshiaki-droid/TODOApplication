@@ -162,6 +162,10 @@ public final class TaskSpecifications {
 	 * @return 検索条件（常に {@code parentTaskId IS NULL} を表す。絞り込みなしを意味するnullは返さない）
 	 */
 	public static Specification<Task> isTopLevel() {
+		// root: エンティティのルート（Taskエンティティ）
+		// query: クエリの定義（CriteriaQuery）
+		// cb: 条件を構築するためのCriteriaBuilder
+		// 要するに、root.get("parentTaskId")でTaskエンティティのparentTaskIdフィールドを取得し、cb.isNullでその値がnullかどうかを判定する条件を作成している
 		return (root, query, cb) -> cb.isNull(root.get("parentTaskId"));
 	}
 }

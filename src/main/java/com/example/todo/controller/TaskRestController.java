@@ -132,6 +132,7 @@ public class TaskRestController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
         taskService.deleteTask(id);
+        // build() で空のレスポンスボディを返す
         return ResponseEntity.ok().build();
     }
 
