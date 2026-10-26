@@ -3,6 +3,26 @@
 Spring Boot（Java 21 / Maven）で実装した、タスク管理アプリケーションです。
 画面表示は Thymeleaf、ステータス変更・削除・フィルタ・並び替えなどの即時反映操作は jQuery（jQuery UI含む）による Ajax 通信で行います。
 
+## 使用技術
+
+- バックエンド
+  - Java 21
+  - Spring Boot 3.3.x
+  - Spring Data JPA
+  - Hibernate
+  - Thymeleaf
+- フロントエンド
+  - HTML / CSS / JavaScript
+  - jQuery 3.7.1
+  - jQuery UI 1.13.2（ドラッグ＆ドロップ並び替え）
+- データベース
+  - MySQL / MariaDB
+- ビルド・テスト
+  - Maven（`mvnw`, `mvnw.cmd`）
+  - JUnit 5
+  - Mockito
+  - JaCoCo
+
 現時点の実装範囲は、
 基本CRUD・ステータス管理
 期限・優先度・カテゴリ・絞り込み・並び替え
@@ -17,14 +37,17 @@ Spring Boot（Java 21 / Maven）で実装した、タスク管理アプリケー
 - タスクには優先度（高・中・低）、期限（日付のみ）、カテゴリ（0または1個、任意）を設定できます。
 - 一覧画面（Thymeleaf）でタスクの追加・編集・ステータス変更・削除ができます。
 - 一覧画面では、ステータス／期限／優先度／カテゴリ／キーワードによる絞り込み（AND結合）ができます。
+- キーワード検索は、トップレベルタスク自身に加えて、サブタスクのタイトル・詳細への一致も検索対象になります（表示はトップレベルタスクのみ）。
 - 一覧画面でタスクをドラッグ＆ドロップして並び替えできます（絞り込み「すべて」表示時のみ）。
 - カテゴリは専用の管理画面（`/categories`）で新規作成・削除ができます。
 - タスクは1階層までのサブタスク（`parentTaskId`）を持つことができ、一覧画面で展開アイコンから
   サブタスク一覧をAjax表示できます。親タスクには進捗（完了件数／全件数、進捗バー）が表示されます。
-- 親タスクを完了にすると全サブタスクも完了になり、逆に全サブタスクが完了すると親タスクも自動的に完了になります
-  （親タスク完了取消し時は`IN_PROGRESS`に戻ります）。
+- 親タスクを完了にすると、`CANCELLED` 以外のサブタスクのみ完了になり、`CANCELLED` はそのまま維持されます。逆に全サブタスク（`CANCELLED`を除く）が完了すると親タスクも自動的に完了になります。
+- 親タスクを中止にすると、未完了のサブタスクのみ自動的に中止になります（既に完了済みのサブタスクは維持）。
+- `DONE` / `CANCELLED` の親タスクには、サブタスクの追加・付け替えはできません（UIとサーバー側で二重に制御）。
 - タスクに繰り返し設定（`recurrenceRule`: 毎日／毎週／毎月）を付けておくと、完了させた瞬間に次回期日の
-  タスクが自動生成されます。
+  タスクが自動生成されます。次回期日は完了日ではなく元の期日（`dueDate`）を基準に計算されます。
+- 毎月繰り返しでは「毎月最終日」フラグ（`isLastDayOfMonth`）を設定できます。
 - ステータス変更・削除・絞り込み・並び替えは、画面を再読み込みせず jQuery の Ajax（`/api/tasks/**`）経由で即時反映します。
 - データの永続化には MySQL / MariaDB + Spring Data JPA を使用します。
 
@@ -116,22 +139,26 @@ mvnw.cmd spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=8081"
 
 - タスク一覧画面
   - パス: `GET /tasks`
-  - 各行にステータス選択用の `<select>`、優先度バッジ、カテゴリバッジ、タスク名、期限、登録日時、編集・削除ボタンを表示
+  - 各行にサブタスク展開アイコン、ステータス選択用の `<select>`、優先度バッジ、繰り返しバッジ、カテゴリバッジ、タスク名、期限、登録日時、完了日時、編集・削除ボタンを表示
   - フィルタ・検索バー（ステータス／期限／優先度／カテゴリ／キーワード）を画面上部に表示。選択・入力中の項目はハイライト表示される
   - 行をドラッグ＆ドロップして並び替え可能（絞り込み「すべて」表示時のみ。絞り込み中は無効化される）
   - サブタスクを持つ親タスクには展開アイコンを表示し、クリックするとサブタスク一覧をAjax取得してアコーディオン表示する
   - 親タスクには進捗（例: 2/5完了、および進捗バー）を表示する（サブタスクが0件、またはすべて中止の場合は非表示）
-  - 各行に「＋サブタスク」ボタンがあり、クリックすると当該タスクを親タスクとして事前選択した新規作成画面に遷移する
+  - 各親タスク行に「＋サブタスク」ボタンがあり、クリックすると当該タスクを親タスクとして事前選択した新規作成画面に遷移する
+  - 親タスクが `DONE` / `CANCELLED` の場合、「＋サブタスク」ボタンは非活性になる
   - タスクが0件の場合は「タスクはありません」と表示
   - `DONE` は取り消し線、`CANCELLED` は取り消し線＋斜体、`IN_PROGRESS`／`ON_HOLD` は背景色で区別
   - 期限切れタスクは赤字＋「期限切れ」ラベル、当日期限はオレンジ色＋「本日期限」ラベルで強調
 - タスク追加画面
   - パス: `GET /tasks/new`
-  - 入力項目はタスク名（必須）、詳細（任意）、優先度、期限、カテゴリ、親タスク（任意）、繰り返し設定。ステータス選択欄は表示されず、保存時に常に `TODO` になる
+  - 入力項目はタスク名（必須）、詳細（任意）、優先度、期限、カテゴリ、親タスク（任意）、繰り返し設定、毎月最終日フラグ。ステータス選択欄は表示されず、保存時に常に `TODO` になる
   - `?parentTaskId=` クエリパラメータを付けて開くと、「＋サブタスク」ボタンからの遷移として親タスクが事前選択される
+  - サブタスク作成時は繰り返し設定が非活性化され、`NONE` で保存される
+  - 新規作成時は期限入力（`dueDate`）に当日を `min` として設定し、過去日選択を抑止
 - タスク編集画面
   - パス: `GET /tasks/{id}/edit`
   - 追加画面の項目に加え、ステータスの選択欄が表示される
+  - 編集フォーム経由でステータス変更した場合も、一覧画面のステータス変更と同じ親子連動ルールが適用される
 - 保存
   - パス: `POST /tasks`（新規作成・更新共通）
   - バリデーションエラー時（タイトル未入力・文字数超過など）はフォームを再表示
@@ -154,21 +181,26 @@ mvnw.cmd spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=8081"
     - `priority`: `Priority` の値（例: `HIGH`）。未指定・空文字は「すべて」
     - `category`: カテゴリIDの数値文字列／`NONE`（カテゴリなし）。未指定・空文字は「すべて」
     - `keyword`: タイトル・詳細に対する部分一致・大文字小文字を区別しない検索
+  - サブタスクだけにキーワード一致した場合も、対応する親タスクを検索結果に含める
   - 不正な値が指定された場合は `400 Bad Request`
 
 - ステータス更新
   - `PATCH /api/tasks/{id}/status`
   - リクエストボディ例: `{"status":"DONE"}`
   - `status` を `DONE` にすると `completedAt` に現在日時が設定され、それ以外に変更すると `null` に戻る
+    - 親タスクを `DONE` にすると、`CANCELLED` 以外のサブタスクが `DONE` になる（`CANCELLED` は維持）
+  - 親タスクを `CANCELLED` にすると未完了のサブタスクのみ `CANCELLED` になる
+  - サブタスクの完了状況に応じて親タスクが自動 `DONE` / `IN_PROGRESS` へ連動する
   - 不正なステータス文字列の場合は `400 Bad Request`
   - 存在しない `id` の場合は `404 Not Found`
 
 - タスク削除
   - `DELETE /api/tasks/{id}`
   - 成功時は `200 OK`
+  - 親タスクを削除した場合は、紐づくサブタスクも一緒に削除される
   - 存在しない `id` を指定した場合も、例外を投げずに `200 OK`
 
-- 並び替え
+- 並び替え（トップレベルタスク）
   - `PUT /api/tasks/reorder`
   - リクエストボディ例: `{"taskIds":[3,1,2]}`（ドロップ後の並び順どおりのIDリスト）
   - 渡された順序で `sortOrder`（0始まりの連番）を一括更新する
@@ -180,6 +212,13 @@ mvnw.cmd spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=8081"
   - 指定した親タスクに紐づくサブタスク一覧を取得する
   - 存在しない親IDの場合は `404 Not Found`
 
+- サブタスク並び替え（同一親内）
+  - `PUT /api/tasks/{parentId}/subtasks/reorder`
+  - リクエストボディ例: `{"taskIds":[11,12,10]}`
+  - 指定した親タスク配下のサブタスクのみを対象に `sortOrder` を振り直す
+  - `taskIds` が未指定の場合は `400 Bad Request`
+  - 存在しない親ID、または他親のサブタスクID混在時は `404 Not Found`
+
 Windows (cmd.exe) での curl 例:
 
 ```cmd
@@ -188,6 +227,10 @@ curl "http://localhost:8080/api/tasks?status=IN_PROGRESS&priority=HIGH"
 curl -X PATCH "http://localhost:8080/api/tasks/1/status" -H "Content-Type: application/json" -d "{\"status\":\"DONE\"}"
 
 curl -X PUT "http://localhost:8080/api/tasks/reorder" -H "Content-Type: application/json" -d "{\"taskIds\":[3,1,2]}"
+
+curl "http://localhost:8080/api/tasks/1/subtasks"
+
+curl -X PUT "http://localhost:8080/api/tasks/1/subtasks/reorder" -H "Content-Type: application/json" -d "{\"taskIds\":[11,12,10]}"
 
 curl -X DELETE "http://localhost:8080/api/tasks/1"
 ```
@@ -199,8 +242,12 @@ curl -X DELETE "http://localhost:8080/api/tasks/1"
 - `src/main/resources/static/js/app.js`
   - ページ読み込み時・フィルタ変更時に `GET /api/tasks` を呼び出し、`#taskTableBody` の中身をAjaxで再構築する（画面全体は再読み込みしない）
   - ステータス選択（`.status-select`）の `change` イベントで `PATCH /api/tasks/{id}/status` を呼び出し、成功後に一覧を再取得する
+  - 親タスクを `DONE` / `CANCELLED` にする場合、子タスクへの連動影響を `confirm()` で確認する
   - 削除ボタン（`.btn-delete`）の `click` イベントで `confirm()` 表示後 `DELETE /api/tasks/{id}` を呼び出し、成功後に一覧を再取得する
-  - jQuery UI の `sortable()` により行のドラッグ＆ドロップを実現し、ドロップ時に `PUT /api/tasks/reorder` へ新しい順序を送信する（絞り込み中は無効化）
+  - サブタスク展開アイコンで `GET /api/tasks/{id}/subtasks` を呼び出し、展開・折りたたみ状態を再描画後も復元する
+  - jQuery UI の `sortable()` でトップレベル行とサブタスク行のD&Dを実装し、
+    並び替え結果を `PUT /api/tasks/reorder` または `PUT /api/tasks/{parentId}/subtasks/reorder` へ送信する
+  - サブタスクの親またぎ移動など不正な構造は、クライアント側で検知して `sortable('cancel')` で巻き戻す
   - いずれもエラー時はサーバーからのエラーメッセージ（`xhr.responseText`）を `alert()` で表示する
 - `src/main/resources/static/css/` - 一覧・フォーム・カテゴリ管理画面のスタイル
 
@@ -209,7 +256,8 @@ curl -X DELETE "http://localhost:8080/api/tasks/1"
 ## 開発のヒント
 
 - `TaskStatus` / `Priority` は表示用の日本語名（`displayName`）を保持しており、Thymeleaf テンプレート側で利用しています。
-- `Task` エンティティの `status` / `priority` は `@Enumerated(EnumType.STRING)` で保存されるため、DB には定数名がそのまま文字列で保存されます。
+- `RecurrenceRule` も表示名（`displayName`）を保持し、一覧画面の繰り返しバッジ表示に利用しています。
+- `Task` エンティティの `status` / `priority` / `recurrenceRule` は `@Enumerated(EnumType.STRING)` で保存されるため、DB には定数名がそのまま文字列で保存されます。
 - `status` と `sortOrder` は、ユーザーが直接入力しない項目のため Bean Validation の対象にせず、`@PrePersist`（`Task#onCreate()`）内で null の場合にデフォルト値を補完しています。同様に `priority` も未設定時は `MEDIUM` を補完します。
 - `Task#categoryId` は「カテゴリなし」を許容する任意項目のため、デフォルト値の補完は行いません（null がそのまま「カテゴリなし」を表す正しい状態）。
 - タスク検索は `TaskRepository`（`JpaSpecificationExecutor`）と `TaskSpecifications` を使い、条件ごとに独立した `Specification` をAND結合して組み立てています。
@@ -246,4 +294,4 @@ mvnw.cmd test
 
 ---
 
-最終更新日: 2026-10/20
+最終更新日: 2026-10/26
