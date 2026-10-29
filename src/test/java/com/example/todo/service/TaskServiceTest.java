@@ -19,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -603,12 +604,17 @@ class TaskServiceTest {
 		doneChild.setTitle("子タスク_完了済み");
 		doneChild.setParentTaskId(savedParent.getId());
 		Task savedDoneChild = taskService.saveTask(doneChild);
-		taskService.updateStatus(savedDoneChild.getId(), TaskStatus.DONE);
 
 		Task cancelledChild = new Task();
 		cancelledChild.setTitle("子タスク_中止済み");
 		cancelledChild.setParentTaskId(savedParent.getId());
 		Task savedCancelledChild = taskService.saveTask(cancelledChild);
+
+		// 先に両方のサブタスクを追加してから（「DONE/CANCELLED親への追加禁止」ガードに
+		// 引っかからないよう、親がまだ未完了のうちに追加を済ませる）、それぞれのステータスを変更する。
+		// なお doneChild を先にDONEにした時点では、兄弟である cancelledChild がまだ TO-DO のため
+		// 親の自動DONE化（子→親カスケード）は発生しない。
+		taskService.updateStatus(savedDoneChild.getId(), TaskStatus.DONE);
 		taskService.updateStatus(savedCancelledChild.getId(), TaskStatus.CANCELLED);
 
 		// ------------実行--------------------------
@@ -625,7 +631,7 @@ class TaskServiceTest {
 
 	@Test
 	@Order(20)
-	void 親タスクをDONEにすると全サブタスクもDONEになる() {
+	void 親タスクをDONEにすると未中止のサブタスクのみDONEになりCANCELLEDは維持される() {
 
 		// ------------準備--------------------------
 
@@ -633,10 +639,16 @@ class TaskServiceTest {
 		parent.setTitle("親タスク_連動完了確認");
 		Task savedParent = taskService.saveTask(parent);
 
-		Task child = new Task();
-		child.setTitle("子タスク_連動完了確認");
-		child.setParentTaskId(savedParent.getId());
-		Task savedChild = taskService.saveTask(child);
+		Task activeChild = new Task();
+		activeChild.setTitle("子タスク_連動完了確認_未中止");
+		activeChild.setParentTaskId(savedParent.getId());
+		Task savedActiveChild = taskService.saveTask(activeChild);
+
+		Task cancelledChild = new Task();
+		cancelledChild.setTitle("子タスク_連動完了確認_中止済み");
+		cancelledChild.setParentTaskId(savedParent.getId());
+		Task savedCancelledChild = taskService.saveTask(cancelledChild);
+		taskService.updateStatus(savedCancelledChild.getId(), TaskStatus.CANCELLED);
 
 		// ------------実行--------------------------
 
@@ -644,12 +656,15 @@ class TaskServiceTest {
 
 		entityManager.flush();
 		entityManager.clear();
-		Task reloadedChild = taskService.getTaskById(savedChild.getId()).orElseThrow();
+		Task reloadedActiveChild = taskService.getTaskById(savedActiveChild.getId()).orElseThrow();
+		Task reloadedCancelledChild = taskService.getTaskById(savedCancelledChild.getId()).orElseThrow();
 
 		// ------------比較--------------------------
 
-		assertThat(reloadedChild.getStatus()).isEqualTo(TaskStatus.DONE);
-		assertThat(reloadedChild.getCompletedAt()).isNotNull();
+		assertThat(reloadedActiveChild.getStatus()).isEqualTo(TaskStatus.DONE);
+		assertThat(reloadedActiveChild.getCompletedAt()).isNotNull();
+		assertThat(reloadedCancelledChild.getStatus()).isEqualTo(TaskStatus.CANCELLED);
+		assertThat(reloadedCancelledChild.getCompletedAt()).isNull();
 	}
 
 	@Test
@@ -986,8 +1001,8 @@ class TaskServiceTest {
 		Task next = all.stream().filter(t -> t.getTitle().equals("繰り返し確認タスク_毎日") && !t.getId().equals(saved.getId()))
 				.findFirst().orElseThrow();
 
-		// 完了日の翌日が次回期日になること（completedAtは今日なので today+1）
-		assertThat(next.getDueDate()).isEqualTo(LocalDate.now().plusDays(1));
+		// 次回期日は「完了日」ではなく「元の期日（dueDate）」の翌日になること
+		assertThat(next.getDueDate()).isEqualTo(task.getDueDate().plusDays(1));
 		assertThat(next.getStatus()).isEqualTo(TaskStatus.TODO);
 		assertThat(next.getCompletedAt()).isNull();
 		assertThat(next.getRecurrenceRule()).isEqualTo(RecurrenceRule.DAILY);
@@ -1301,7 +1316,7 @@ class TaskServiceTest {
 
 		// ------------比較--------------------------
 
-		// サブタスクはrecurrenceRuleを持てず、常にNONEへ強制される（質問3最終決定）
+		// サブタスクはrecurrenceRuleを持てず、常にNONEへ強制される
 		assertThat(savedChild.getRecurrenceRule()).isEqualTo(RecurrenceRule.NONE);
 
 		// NONEに強制されているため、このサブタスクを完了させても独立した次回タスクは生成されない
@@ -1312,5 +1327,390 @@ class TaskServiceTest {
 		long generatedCount = taskService.getAllTasks().stream().filter(t -> t.getTitle().equals("子タスク_繰り返し禁止確認"))
 				.count();
 		assertThat(generatedCount).isZero();
+	}
+
+	@Test
+	@Order(42)
+	void DONEの親タスクに新規サブタスクを追加しようとすると例外になる() {
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("DONE親タスク_サブタスク追加禁止確認");
+		Task savedParent = taskService.saveTask(parent);
+		taskService.updateStatus(savedParent.getId(), TaskStatus.DONE);
+
+		Task child = new Task();
+		child.setTitle("子タスク_DONE親への追加確認");
+		child.setParentTaskId(savedParent.getId());
+
+		// ------------実行・比較--------------------------
+
+		assertThatThrownBy(() -> taskService.saveTask(child)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	@Order(43)
+	void CANCELLEDの親タスクに新規サブタスクを追加しようとすると例外になる() {
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("CANCELLED親タスク_サブタスク追加禁止確認");
+		Task savedParent = taskService.saveTask(parent);
+		taskService.updateStatus(savedParent.getId(), TaskStatus.CANCELLED);
+
+		Task child = new Task();
+		child.setTitle("子タスク_CANCELLED親への追加確認");
+		child.setParentTaskId(savedParent.getId());
+
+		// ------------実行・比較--------------------------
+
+		assertThatThrownBy(() -> taskService.saveTask(child)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	@Order(44)
+	void 既存のサブタスクを編集する際に親がDONEであっても追加制限には引っかからない() {
+
+		// 制限は「新規にこの親へサブタスクを追加・付け替えする」操作のみを対象とし、
+		// 既に紐づいているサブタスクの通常編集（親の付け替えを伴わない）まではブロックしない方針の確認
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("DONE親タスク_既存子編集確認");
+		Task savedParent = taskService.saveTask(parent);
+
+		Task child = new Task();
+		child.setTitle("子タスク_既存子編集確認");
+		child.setParentTaskId(savedParent.getId());
+		Task savedChild = taskService.saveTask(child);
+
+		// 親をDONEにする（cascadeDoneToSubtasksにより子もDONEになる）
+		taskService.updateStatus(savedParent.getId(), TaskStatus.DONE);
+
+		// 既存のサブタスクのタイトルだけを変更する（parentTaskIdは変えない）
+		Task childEdit = new Task();
+		childEdit.setId(savedChild.getId());
+		childEdit.setTitle("子タスク_既存子編集確認_編集後");
+		childEdit.setParentTaskId(savedParent.getId());
+		childEdit.setStatus(TaskStatus.DONE);
+
+		// ------------実行・比較--------------------------
+
+		assertThatCode(() -> taskService.saveTask(childEdit)).doesNotThrowAnyException();
+	}
+
+	@Test
+	@Order(45)
+	void 編集フォーム経由saveTaskでステータスをDONEにしても一覧画面と同じ親子カスケードが働く() {
+
+		// 編集フォーム（POST /tasks、saveTask経由）でステータス変更しても、
+		// 一覧画面のドロップダウン（PATCH /api/tasks/{id}/status、updateStatus経由）と
+		// 同じ親子カスケードが適用されることの確認
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("編集フォーム連動確認_親タスク");
+		Task savedParent = taskService.saveTask(parent);
+
+		Task child = new Task();
+		child.setTitle("編集フォーム連動確認_子タスク");
+		child.setParentTaskId(savedParent.getId());
+		Task savedChild = taskService.saveTask(child);
+
+		// ------------実行--------------------------
+
+		// 編集フォーム経由（saveTask）で親タスクをDONEにする
+		Task parentEdit = new Task();
+		parentEdit.setId(savedParent.getId());
+		parentEdit.setTitle("編集フォーム連動確認_親タスク");
+		parentEdit.setStatus(TaskStatus.DONE);
+		taskService.saveTask(parentEdit);
+
+		// ------------比較--------------------------
+
+		// 一覧画面のドロップダウン経由（updateStatus）と同様、子タスクも連動してDONEになっていること
+		Task reloadedChild = taskService.getTaskById(savedChild.getId()).orElseThrow();
+		assertThat(reloadedChild.getStatus()).isEqualTo(TaskStatus.DONE);
+	}
+
+	@Test
+	@Order(46)
+	void 親タスクをCANCELLEDにすると未完了のサブタスクのみ連動してCANCELLEDになる() {
+
+		// 親タスクを中止（CANCELLED）にした場合、未完了のサブタスクのみを
+		// 連動して一括CANCELLEDにし、既にDONEのサブタスクは状態を維持することの確認
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("親タスク_CANCELLED連動確認");
+		Task savedParent = taskService.saveTask(parent);
+
+		Task doneChild = new Task();
+		doneChild.setTitle("子タスク_完了済み_CANCELLED連動確認");
+		doneChild.setParentTaskId(savedParent.getId());
+		Task savedDoneChild = taskService.saveTask(doneChild);
+
+		Task todoChild = new Task();
+		todoChild.setTitle("子タスク_未着手_CANCELLED連動確認");
+		todoChild.setParentTaskId(savedParent.getId());
+		Task savedTodoChild = taskService.saveTask(todoChild);
+
+		Task inProgressChild = new Task();
+		inProgressChild.setTitle("子タスク_進行中_CANCELLED連動確認");
+		inProgressChild.setParentTaskId(savedParent.getId());
+		Task savedInProgressChild = taskService.saveTask(inProgressChild);
+		taskService.updateStatus(savedInProgressChild.getId(), TaskStatus.IN_PROGRESS);
+
+		// doneChildのみ先にDONEにしておく（兄弟がまだ未完了のため、親の自動DONE化は発生しない）
+		taskService.updateStatus(savedDoneChild.getId(), TaskStatus.DONE);
+
+		// ------------実行--------------------------
+
+		taskService.updateStatus(savedParent.getId(), TaskStatus.CANCELLED);
+
+		// ------------比較--------------------------
+
+		// 既にDONEだったサブタスクは状態を維持する（中止にしない）
+		Task reloadedDoneChild = taskService.getTaskById(savedDoneChild.getId()).orElseThrow();
+		assertThat(reloadedDoneChild.getStatus()).isEqualTo(TaskStatus.DONE);
+
+		// 未完了だったサブタスクは連動してCANCELLEDになる
+		Task reloadedTodoChild = taskService.getTaskById(savedTodoChild.getId()).orElseThrow();
+		assertThat(reloadedTodoChild.getStatus()).isEqualTo(TaskStatus.CANCELLED);
+
+		Task reloadedInProgressChild = taskService.getTaskById(savedInProgressChild.getId()).orElseThrow();
+		assertThat(reloadedInProgressChild.getStatus()).isEqualTo(TaskStatus.CANCELLED);
+
+		// 親タスク自身もCANCELLEDになっていること
+		Task reloadedParent = taskService.getTaskById(savedParent.getId()).orElseThrow();
+		assertThat(reloadedParent.getStatus()).isEqualTo(TaskStatus.CANCELLED);
+	}
+
+	@Test
+	@Order(47)
+	void キーワードがサブタスクのみにマッチする場合でも親タスクが検索結果に含まれる() {
+
+		// サブタスクのタイトル／詳細にのみマッチするキーワードで検索した場合、
+		// その親タスクも検索結果（トップレベル一覧）にヒットして表示されることの確認
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("親タスク_サブタスク検索確認");
+		Task savedParent = taskService.saveTask(parent);
+
+		Task child = new Task();
+		child.setTitle("特殊キーワードXYZ123を含む子タスク");
+		child.setParentTaskId(savedParent.getId());
+		taskService.saveTask(child);
+
+		// キーワードにマッチしない無関係なトップレベルタスクも用意し、誤ってヒットしないことも確認する
+		Task unrelated = new Task();
+		unrelated.setTitle("無関係なタスク_サブタスク検索確認");
+		taskService.saveTask(unrelated);
+
+		// ------------実行--------------------------
+
+		List<Task> result = taskService.searchTasks(null, null, null, "XYZ123", null, false);
+
+		// ------------比較--------------------------
+
+		// サブタスクの子タスク自体は一覧の行としては返らず（トップレベルのみ）、
+		// その親タスクのみがヒットして1件だけ返ること
+		assertThat(result).extracting(Task::getId).containsExactly(savedParent.getId());
+	}
+
+	@Test
+	@Order(48)
+	void キーワードが親タスク自身にマッチする場合は従来どおり通常検索される() {
+
+		// 親タスク自身のタイトル・詳細によるマッチは従来どおり機能することの確認（リグレッション防止）
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("キーワード自己一致確認_ABC789");
+		taskService.saveTask(parent);
+
+		Task unrelated = new Task();
+		unrelated.setTitle("無関係なタスク_自己一致確認");
+		taskService.saveTask(unrelated);
+
+		// ------------実行--------------------------
+
+		List<Task> result = taskService.searchTasks(null, null, null, "ABC789", null, false);
+
+		// ------------比較--------------------------
+
+		assertThat(result).extracting(Task::getTitle).containsExactly("キーワード自己一致確認_ABC789");
+	}
+
+	@Test
+	@Order(49)
+	void reorderSubtasksで渡した順序どおりに同一親内のサブタスクのsortOrderが振り直される() {
+
+		// 同一親タスク内でのサブタスク並び替え（D&D）の永続化ロジックを検証する
+
+		// ------------準備--------------------------
+
+		Task parent = new Task();
+		parent.setTitle("サブタスク並び替え確認_親");
+		Task savedParent = taskService.saveTask(parent);
+
+		Task childA = new Task();
+		childA.setTitle("サブタスク並び替え確認_子A");
+		childA.setParentTaskId(savedParent.getId());
+		Task savedChildA = taskService.saveTask(childA);
+
+		Task childB = new Task();
+		childB.setTitle("サブタスク並び替え確認_子B");
+		childB.setParentTaskId(savedParent.getId());
+		Task savedChildB = taskService.saveTask(childB);
+
+		Task childC = new Task();
+		childC.setTitle("サブタスク並び替え確認_子C");
+		childC.setParentTaskId(savedParent.getId());
+		Task savedChildC = taskService.saveTask(childC);
+
+		// ------------実行--------------------------
+
+		// C→A→Bの順に並び替える
+		taskService.reorderSubtasks(savedParent.getId(),
+				List.of(savedChildC.getId(), savedChildA.getId(), savedChildB.getId()));
+
+		entityManager.flush();
+		entityManager.clear();
+
+		// ------------比較--------------------------
+
+		Task reloadedA = taskService.getTaskById(savedChildA.getId()).orElseThrow();
+		Task reloadedB = taskService.getTaskById(savedChildB.getId()).orElseThrow();
+		Task reloadedC = taskService.getTaskById(savedChildC.getId()).orElseThrow();
+
+		assertThat(reloadedC.getSortOrder()).isEqualTo(0);
+		assertThat(reloadedA.getSortOrder()).isEqualTo(1);
+		assertThat(reloadedB.getSortOrder()).isEqualTo(2);
+	}
+
+	@Test
+	@Order(50)
+	void reorderSubtasksに異なる親のサブタスクIDが混在していると例外になり何も保存されない() {
+
+		// 「異なる親のサブタスクIDが混在した場合に弾く」ことの確認
+
+		// ------------準備--------------------------
+
+		Task parentX = new Task();
+		parentX.setTitle("サブタスク並び替え混在確認_親X");
+		Task savedParentX = taskService.saveTask(parentX);
+
+		Task childX = new Task();
+		childX.setTitle("サブタスク並び替え混在確認_子X");
+		childX.setParentTaskId(savedParentX.getId());
+		Task savedChildX = taskService.saveTask(childX);
+		Integer originalSortOrderX = savedChildX.getSortOrder();
+
+		Task parentY = new Task();
+		parentY.setTitle("サブタスク並び替え混在確認_親Y");
+		Task savedParentY = taskService.saveTask(parentY);
+
+		Task childY = new Task();
+		childY.setTitle("サブタスク並び替え混在確認_子Y");
+		childY.setParentTaskId(savedParentY.getId());
+		Task savedChildY = taskService.saveTask(childY);
+
+		// ------------実行・比較--------------------------
+
+		// 親Xのサブタスク並び替えに、親Yのサブタスクのidを混ぜて呼び出すと例外になる
+		assertThatThrownBy(() -> taskService.reorderSubtasks(savedParentX.getId(),
+				List.of(savedChildX.getId(), savedChildY.getId()))).isInstanceOf(IllegalArgumentException.class);
+
+		entityManager.flush();
+		entityManager.clear();
+
+		// 例外発生時は何も保存されず、親Xの子のsortOrderは変化しないこと
+		Task reloadedChildX = taskService.getTaskById(savedChildX.getId()).orElseThrow();
+		assertThat(reloadedChildX.getSortOrder()).isEqualTo(originalSortOrderX);
+	}
+
+	@Test
+	@Order(51)
+	void 存在しない親タスクIDでreorderSubtasksを呼ぶと例外になる() {
+
+		// ------------実行・比較--------------------------
+
+		assertThatThrownBy(() -> taskService.reorderSubtasks(999999L, List.of(1L, 2L)))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	@Order(52)
+	void 新規作成用の親タスク候補にはDONEとCANCELLEDが含まれない() {
+
+		// ------------準備--------------------------
+
+		Task todoParent = new Task();
+		todoParent.setTitle("親候補_未完了");
+		Task savedTodoParent = taskService.saveTask(todoParent);
+
+		Task doneParent = new Task();
+		doneParent.setTitle("親候補_DONE");
+		Task savedDoneParent = taskService.saveTask(doneParent);
+		taskService.updateStatus(savedDoneParent.getId(), TaskStatus.DONE);
+
+		Task cancelledParent = new Task();
+		cancelledParent.setTitle("親候補_CANCELLED");
+		Task savedCancelledParent = taskService.saveTask(cancelledParent);
+		taskService.updateStatus(savedCancelledParent.getId(), TaskStatus.CANCELLED);
+
+		// ------------実行--------------------------
+
+		List<Task> candidates = taskService.getAvailableParentTaskCandidatesForCreate(null, null);
+
+		// ------------比較--------------------------
+
+		assertThat(candidates).extracting(Task::getId).contains(savedTodoParent.getId())
+				.doesNotContain(savedDoneParent.getId(), savedCancelledParent.getId());
+	}
+
+	@Test
+	@Order(53)
+	void 編集用の親タスク候補ではDONEとCANCELLEDを除外しつつ現在の親は維持する() {
+
+		// ------------準備--------------------------
+
+		Task todoParent = new Task();
+		todoParent.setTitle("編集候補_未完了");
+		Task savedTodoParent = taskService.saveTask(todoParent);
+
+		Task doneParent = new Task();
+		doneParent.setTitle("編集候補_DONE");
+		Task savedDoneParent = taskService.saveTask(doneParent);
+		taskService.updateStatus(savedDoneParent.getId(), TaskStatus.DONE);
+
+		Task cancelledParent = new Task();
+		cancelledParent.setTitle("編集候補_CANCELLED");
+		Task savedCancelledParent = taskService.saveTask(cancelledParent);
+
+		Task editingTask = new Task();
+		editingTask.setTitle("編集対象_親維持確認");
+		editingTask.setParentTaskId(savedCancelledParent.getId());
+		Task savedEditingTask = taskService.saveTask(editingTask);
+		taskService.updateStatus(savedCancelledParent.getId(), TaskStatus.CANCELLED);
+
+		// ------------実行--------------------------
+
+		List<Task> candidates = taskService.getAvailableParentTaskCandidatesForEdit(savedEditingTask.getId(),
+				savedCancelledParent.getId());
+
+		// ------------比較--------------------------
+
+		assertThat(candidates).extracting(Task::getId).contains(savedTodoParent.getId(), savedCancelledParent.getId())
+				.doesNotContain(savedDoneParent.getId());
 	}
 }

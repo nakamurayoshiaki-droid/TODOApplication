@@ -49,7 +49,8 @@ public class TaskRestController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String category) {
 
-        // パラメータのバリデーションと変換
+        // パラメータをTaskSpecificationsの仕様に変換
+    	// status → TaskStatus enum に変換
         TaskStatus statusEnum;
         try {
             if (status == null || status.isBlank()) {
@@ -61,6 +62,7 @@ public class TaskRestController {
             return ResponseEntity.badRequest().body("不正なステータス値です: " + status);
         }
 
+        // due → TaskSpecifications.DueFilter enum に変換
         Priority priorityEnum;
         try {
             if (priority == null || priority.isBlank()) {
@@ -72,6 +74,7 @@ public class TaskRestController {
             return ResponseEntity.badRequest().body("不正な優先度値です: " + priority);
         }
 
+        // category → Long に変換（"NONE"はnull扱い）
         Long categoryId = null;
         boolean noCategory = false;
         if (category != null && !category.isBlank()) {
@@ -169,6 +172,31 @@ public class TaskRestController {
             return ResponseEntity.badRequest().body("taskIdsは必須です");
         }
         taskService.reorderTasks(taskIds);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 同一親タスク内でのドラッグ＆ドロップ後のサブタスクの並び順をまとめて受け取り、永続化するエンドポイント。
+     * <p>
+     * トップレベルタスクの並び替え（{@code PUT /api/tasks/reorder}）とは別の採番空間を扱うため、
+     * 専用のエンドポイントとして切り出している。リクエストボディには、ドロップ後の並び順どおりの
+     * サブタスクIDの配列を {@code {"taskIds": [5, 3, 4, ...]}} の形式で渡す。
+     * </p>
+     *
+     * @param parentId 対象の親タスクのID
+     * @param payload  リクエストボディ（キー: "taskIds"）
+     * @return 更新成功時は空の HTTP 200 レスポンス、{@code taskIds} が未指定の場合は 400。
+     *         親タスクが存在しない場合、または {@code taskIds} に指定した親タスクに属さない
+     *         サブタスクIDが含まれる場合は {@link RestApiExceptionHandler} により 404 に変換される
+     */
+    @PutMapping("/{parentId}/subtasks/reorder")
+    public ResponseEntity<?> reorderSubtasks(@PathVariable Long parentId,
+            @RequestBody Map<String, List<Long>> payload) {
+        List<Long> taskIds = payload.get("taskIds");
+        if (taskIds == null) {
+            return ResponseEntity.badRequest().body("taskIdsは必須です");
+        }
+        taskService.reorderSubtasks(parentId, taskIds);
         return ResponseEntity.ok().build();
     }
 }

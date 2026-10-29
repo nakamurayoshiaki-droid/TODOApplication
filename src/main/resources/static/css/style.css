@@ -174,6 +174,20 @@ body {
     background: #316454;
 }
 
+/* 非活性ボタンは視覚的に明確化し、hover時も見た目を変えない */
+.btn:disabled,
+.btn[disabled] {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.btn-subtask-disabled,
+.btn-subtask-disabled:hover {
+    background: #1b3029;
+    color: #95b8ac;
+    border: 1px dashed #3d5d53;
+}
+
 /* btn-dangerのスタイルを追加 */
 .btn-danger {
     background: #dc2626;
@@ -354,11 +368,9 @@ body {
    「タイトルの文字だけ」ではなく「行自体」を一段右にずらして、ツリー構造の
    ネストのように見せる（transformは要素のレイアウト幅には影響しないため、
    テーブルの列幅・他の行とは無関係に、この行の見た目の位置だけを右にずらせる）。
-   通常の行より少し背景を暗くし、並び替え対象外であることが視覚的にも分かるように
-   カーソルをdefaultにする。 */
+   通常の行より少し背景を暗くして、親行との区別をつける。 */
 .task-table tbody tr.subtask-row {
     background-color: rgba(0, 0, 0, 0.18);
-    cursor: default !important;
     transform: translateX(24px);
 }
 
@@ -396,6 +408,19 @@ body {
     word-break: break-word;
 }
 
+/* タスク名セルを2段に分ける（1段目: バッジ/進捗、2段目: タスク名） */
+.task-meta-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.task-main-line {
+    display: block;
+}
+
 /* 優先度バッジの共通スタイル */
 .priority-badge {
     display: inline-block;
@@ -403,7 +428,6 @@ body {
     font-weight: bold;
     padding: 2px 8px;
     border-radius: 4px;
-    margin-right: 8px;
     vertical-align: middle;
     color: #ffffff;
 }
@@ -430,9 +454,21 @@ body {
     font-weight: bold;
     padding: 2px 8px;
     border-radius: 4px;
-    margin-right: 8px;
     vertical-align: middle;
     color: #ffffff;
+}
+
+/* 繰り返しバッジの共通スタイル（1-1）。
+   DAILY/WEEKLY/MONTHLYいずれも同系色の落ち着いた配色にし、優先度バッジ等と視覚的に区別する */
+.recurrence-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 4px;
+    vertical-align: middle;
+    color: #ffffff;
+    background: #0891b2;
 }
 
 /* 期限切れ */
@@ -598,6 +634,23 @@ body {
 /* フォームコントロール（入力欄）のフォーカス時のスタイル */
 .form-control:focus {
     border-color: #34d399;
+}
+
+/* 非活性フォーム項目を、一覧の非活性ボタンと同じトーンで明示する */
+.form-control:disabled,
+.form-control-disabled-emphasis {
+    cursor: not-allowed;
+    opacity: 0.55;
+    background: #1b3029;
+    color: #95b8ac;
+    border: 1px dashed #3d5d53;
+}
+
+/* 非活性理由の補足メッセージ */
+.form-disabled-hint {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: #95b8ac;
 }
 
 /* フォームエラーメッセージのスタイル */

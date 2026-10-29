@@ -343,4 +343,100 @@ class TaskRestControllerSearchTest {
                 .content("{}"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @Order(14)
+    void PUTでサブタスクの並び替え後の順序がsortOrderとしてDBへ永続化される() throws Exception {
+
+        // 同一親タスク内でのサブタスク並び替え（D&D）の永続化をMockMvc経由で確認する
+
+        //------------準備--------------------------
+
+        Task parent = new Task();
+        parent.setTitle("サブタスク並び替えAPI確認_親");
+        Task savedParent = taskService.saveTask(parent);
+
+        Task childA = new Task();
+        childA.setTitle("サブタスク並び替えAPI確認_子A");
+        childA.setParentTaskId(savedParent.getId());
+        Task savedChildA = taskService.saveTask(childA);
+
+        Task childB = new Task();
+        childB.setTitle("サブタスク並び替えAPI確認_子B");
+        childB.setParentTaskId(savedParent.getId());
+        Task savedChildB = taskService.saveTask(childB);
+
+        // 現在はA→Bの順。並び替え後はB→Aの順に変更する。
+        List<Long> newOrder = List.of(savedChildB.getId(), savedChildA.getId());
+
+        //------------実行--------------------------
+
+        mockMvc.perform(put("/api/tasks/" + savedParent.getId() + "/subtasks/reorder")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(Map.of("taskIds", newOrder))))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        //------------比較--------------------------
+
+        Task reloadedChildA = taskService.getTaskById(savedChildA.getId()).orElseThrow();
+        Task reloadedChildB = taskService.getTaskById(savedChildB.getId()).orElseThrow();
+
+        // Bのほうが先（sortOrderが小さい）になっていること
+        assertThat(reloadedChildB.getSortOrder()).isLessThan(reloadedChildA.getSortOrder());
+    }
+
+    @Test
+    @Order(15)
+    void PUTでサブタスク並び替えにtaskIdsが未指定の場合400が返る() throws Exception {
+
+        Task parent = new Task();
+        parent.setTitle("サブタスク並び替えAPI_taskIds未指定確認_親");
+        Task savedParent = taskService.saveTask(parent);
+
+        mockMvc.perform(put("/api/tasks/" + savedParent.getId() + "/subtasks/reorder")
+                .contentType("application/json")
+                .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @Order(16)
+    void PUTで存在しない親タスクIDへサブタスク並び替えを行うと404が返る() throws Exception {
+        mockMvc.perform(put("/api/tasks/999999/subtasks/reorder")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(Map.of("taskIds", List.of(1L, 2L)))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Order(17)
+    void PUTでサブタスク並び替えに異なる親のサブタスクIDが混在していると404が返る() throws Exception {
+
+        Task parentX = new Task();
+        parentX.setTitle("サブタスク並び替えAPI_混在確認_親X");
+        Task savedParentX = taskService.saveTask(parentX);
+
+        Task childX = new Task();
+        childX.setTitle("サブタスク並び替えAPI_混在確認_子X");
+        childX.setParentTaskId(savedParentX.getId());
+        Task savedChildX = taskService.saveTask(childX);
+
+        Task parentY = new Task();
+        parentY.setTitle("サブタスク並び替えAPI_混在確認_親Y");
+        Task savedParentY = taskService.saveTask(parentY);
+
+        Task childY = new Task();
+        childY.setTitle("サブタスク並び替えAPI_混在確認_子Y");
+        childY.setParentTaskId(savedParentY.getId());
+        Task savedChildY = taskService.saveTask(childY);
+
+        mockMvc.perform(put("/api/tasks/" + savedParentX.getId() + "/subtasks/reorder")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(
+                        Map.of("taskIds", List.of(savedChildX.getId(), savedChildY.getId())))))
+                .andExpect(status().isNotFound());
+    }
 }

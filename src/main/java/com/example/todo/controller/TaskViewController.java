@@ -45,8 +45,7 @@ public class TaskViewController {
 	// 引数がない場合@RequestMapping のパスがそのまま適用
 	@GetMapping
 	public String listTasks(Model model) {
-		// モデルに全タスクとステータス一覧を追加
-		// フロント側にtasks、statusesという名前でtaskService.getAllTasks()の戻り値とTaskStatus.values()の戻り値を渡す
+		// モデルにタスク、ステータス、優先度、カテゴリを追加
 		model.addAttribute("tasks", taskService.getAllTasks());
 		model.addAttribute("statuses", TaskStatus.values());
 		model.addAttribute("priorities", Priority.values());
@@ -84,14 +83,18 @@ public class TaskViewController {
 		Task task = new Task();
 		if (parentTaskId != null) {
 			task.setParentTaskId(parentTaskId);
+			// サブタスク作成時は、親タスクのカテゴリを初期値として引き継ぐ（必要に応じて画面で変更可）
+			taskService.getTaskById(parentTaskId).ifPresent(parent -> task.setCategoryId(parent.getCategoryId()));
 		}
 		model.addAttribute("task", task);
 		model.addAttribute("statuses", TaskStatus.values());
 		model.addAttribute("priorities", Priority.values());
 		model.addAttribute("categories", categoryService.getAllCategories());
 		model.addAttribute("recurrenceRules", RecurrenceRule.values());
-		// 親タスク選択欄の候補。編集対象自身は候補から除外する
-		model.addAttribute("parentTaskCandidates", taskService.getParentTaskCandidates(null));
+		// 新規作成時は、完了済み・中止済みの親タスクを候補から除外する。
+		// ただし一覧画面の「+サブタスク」から渡された親IDは事前選択状態を維持する。
+		model.addAttribute("parentTaskCandidates",
+				taskService.getAvailableParentTaskCandidatesForCreate(null, task.getParentTaskId()));
 		return "tasks/form";
 	}
 
@@ -115,8 +118,10 @@ public class TaskViewController {
 			model.addAttribute("priorities", Priority.values());
 			model.addAttribute("categories", categoryService.getAllCategories());
 			model.addAttribute("recurrenceRules", RecurrenceRule.values());
-			// 親タスク選択欄の候補。編集対象自身は候補から除外する
-			model.addAttribute("parentTaskCandidates", taskService.getParentTaskCandidates(id));
+			// 編集時も完了済み・中止済みの親タスクは候補から除外する。
+			// ただし現在すでに紐づいている親タスクは表示を維持する。
+			model.addAttribute("parentTaskCandidates",
+					taskService.getAvailableParentTaskCandidatesForEdit(id, task.getParentTaskId()));
 			return "tasks/form";
 		}).orElseGet(() -> {
 			// 編集リンクを開いた時点で対象タスクが既に削除されていた場合は、
@@ -148,7 +153,10 @@ public class TaskViewController {
 			model.addAttribute("priorities", Priority.values());
 			model.addAttribute("categories", categoryService.getAllCategories());
 			model.addAttribute("recurrenceRules", RecurrenceRule.values());
-			model.addAttribute("parentTaskCandidates", taskService.getParentTaskCandidates(task.getId()));
+			model.addAttribute("parentTaskCandidates",
+					task.getId() == null
+							? taskService.getAvailableParentTaskCandidatesForCreate(null, task.getParentTaskId())
+							: taskService.getAvailableParentTaskCandidatesForEdit(task.getId(), task.getParentTaskId()));
 			return "tasks/form";
 		}
 
@@ -174,7 +182,10 @@ public class TaskViewController {
 			model.addAttribute("priorities", Priority.values());
 			model.addAttribute("categories", categoryService.getAllCategories());
 			model.addAttribute("recurrenceRules", RecurrenceRule.values());
-			model.addAttribute("parentTaskCandidates", taskService.getParentTaskCandidates(task.getId()));
+			model.addAttribute("parentTaskCandidates",
+					task.getId() == null
+							? taskService.getAvailableParentTaskCandidatesForCreate(null, task.getParentTaskId())
+							: taskService.getAvailableParentTaskCandidatesForEdit(task.getId(), task.getParentTaskId()));
 			return "tasks/form";
 		}
 

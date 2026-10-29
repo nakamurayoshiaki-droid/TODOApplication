@@ -1,133 +1,127 @@
 <!DOCTYPE html>
 <html lang="ja" xmlns:th="http://www.thymeleaf.org">
-	
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${task.id == null ? 'タスク追加' : 'タスク編集'} + ' - Todoアプリ'">タスクフォーム</title>
-    <link rel="stylesheet" th:href="@{/css/style.css}">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title th:text="${task.id == null ? 'タスク追加' : 'タスク編集'} + ' - Todoアプリ'">タスクフォーム</title>
+	<link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 
 <body>
-<div class="container-small">
-	<!-- ヘッダー -->
-    <header class="page-header">
-        <h1 th:text="${task.id == null ? 'タスク新規追加' : 'タスク編集'}">タスク追加</h1>
-    </header>
-    <main class="card">
-		<!-- 親タスクのバリデーションエラー（1階層制限違反等）表示欄 -->
-        <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+	<div class="container-small">
+		<!-- ヘッダー -->
+		<header class="page-header">
+			<h1 th:text="${task.id == null ? 'タスク新規追加' : 'タスク編集'}">タスク追加</h1>
+		</header>
+		<main class="card">
+			<!-- 親タスクのバリデーションエラー（1階層制限違反等）表示欄 -->
+			<div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
 
-		<!-- タスクフォーム -->
-        <form th:action="@{/tasks}" th:object="${task}" method="post">
-            <input type="hidden" th:field="*{id}">
-            <input type="hidden" th:field="*{sortOrder}">
+			<!-- タスクフォーム -->
+			<form th:action="@{/tasks}" th:object="${task}" method="post">
+				<input type="hidden" th:field="*{id}">
+				<input type="hidden" th:field="*{sortOrder}">
 
-			<!-- タスク名 -->
-            <div class="form-group">
-                <label for="title">タスク名 <span class="required">*</span></label>
-                <input type="text" id="title" th:field="*{title}" class="form-control" placeholder="例: 報告書の作成" required>
-                <span class="error-msg" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></span>
-            </div>
+				<!-- タスク名 -->
+				<div class="form-group">
+					<label for="title">タスク名 <span class="required">*</span></label>
+					<input type="text" id="title" th:field="*{title}" class="form-control" placeholder="例: 報告書の作成"
+						required>
+					<span class="error-msg" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></span>
+				</div>
 
-			<!-- 詳細・メモの入力欄 -->
-            <div class="form-group">
-                <label for="description">詳細・メモ</label>
-                <textarea id="description" th:field="*{description}" class="form-control" rows="4" placeholder="タスクの詳細を入力してください..."></textarea>
-                <span class="error-msg" th:if="${#fields.hasErrors('description')}" th:errors="*{description}"></span>
-            </div>
+				<!-- 詳細・メモの入力欄 -->
+				<div class="form-group">
+					<label for="description">詳細・メモ</label>
+					<textarea id="description" th:field="*{description}" class="form-control" rows="4"
+						placeholder="タスクの詳細を入力してください..."></textarea>
+					<span class="error-msg" th:if="${#fields.hasErrors('description')}"
+						th:errors="*{description}"></span>
+				</div>
 
-			<!-- 優先度の選択欄（未設定時はMEDIUM扱い） -->
-            <div class="form-group">
-                <label for="priority">優先度</label>
-                <select id="priority" th:field="*{priority}" class="form-control">
-                    <option th:each="pr : ${priorities}" th:value="${pr.name()}" th:text="${pr.displayName}"></option>
-                </select>
-            </div>
+				<!-- 優先度の選択欄（未設定時はMEDIUM扱い） -->
+				<div class="form-group">
+					<label for="priority">優先度</label>
+					<select id="priority" th:field="*{priority}" class="form-control">
+						<option th:each="pr : ${priorities}" th:value="${pr.name()}" th:text="${pr.displayName}">
+						</option>
+					</select>
+				</div>
 
-			<!-- 期限の入力欄（未設定＝期限なしを許容） -->
-            <div class="form-group">
-                <label for="dueDate">期限</label>
-                <input type="date" id="dueDate" th:field="*{dueDate}" class="form-control">
-                <span class="error-msg" th:if="${#fields.hasErrors('dueDate')}" th:errors="*{dueDate}"></span>
-            </div>
+				<!-- 期限の入力欄（未設定＝期限なしを許容） -->
+				<div class="form-group">
+					<label for="dueDate">期限</label>
+					<input type="date" id="dueDate" th:field="*{dueDate}" class="form-control">
+					<span class="error-msg" th:if="${#fields.hasErrors('dueDate')}" th:errors="*{dueDate}"></span>
+				</div>
 
-			<!-- カテゴリの選択欄（「カテゴリなし」を含む） -->
-            <div class="form-group">
-                <label for="categoryId">カテゴリ</label>
-                <select id="categoryId" th:field="*{categoryId}" class="form-control">
-                    <option value="">カテゴリなし</option>
-                    <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
-                </select>
-            </div>
+				<!-- カテゴリの選択欄（「カテゴリなし」を含む） -->
+				<div class="form-group">
+					<label for="categoryId">カテゴリ</label>
+					<select id="categoryId" th:field="*{categoryId}" class="form-control">
+						<option value="">カテゴリなし</option>
+						<option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+					</select>
+				</div>
 
-			<!-- 親タスクの選択欄: 選択すると、このタスクは選んだタスクのサブタスクになる。
-				候補はトップレベルタスク全体（自分自身を除く）であり、
-			     既にサブタスクを持つタスク（他タスクの親）も除外されない
-			     （1つの親タスクに複数のサブタスクを紐づけることは許容されるため。
-			     TaskService#getParentTaskCandidatesのJavadoc参照）。
-			     「孫階層」を作る操作（既にサブタスクを持つタスクを別の親の下に入れる、
-			     または既にサブタスクである親を選ぶ）はTaskService#saveTask側のバリデーションで
-			     保存時に拒否される） -->
-            <div class="form-group">
-                <label for="parentTaskId">親タスク</label>
-                <select id="parentTaskId" th:field="*{parentTaskId}" class="form-control">
-                    <option value="">親タスクなし</option>
-                    <option th:each="pt : ${parentTaskCandidates}" th:value="${pt.id}" th:text="${pt.title}"></option>
-                </select>
-            </div>
+				<!-- 親タスクの選択欄 -->
+				<div class="form-group">
+					<label for="parentTaskId">親タスク</label>
+					<select id="parentTaskId" th:field="*{parentTaskId}" class="form-control">
+						<option value="">親タスクなし</option>
+						<option th:each="pt : ${parentTaskCandidates}" th:value="${pt.id}" th:text="${pt.title}">
+						</option>
+					</select>
+				</div>
 
-			<!-- 繰り返し設定の選択欄: NONE以外を選ぶと、このタスクをDONEにした瞬間、次回期日を持つ新しいタスクが自動生成される。
-			     サブタスク（親タスクを選択した状態）には繰り返し設定を持たせない方針のため
-			     親タスク選択欄で何か選択されている間はこの欄自体を非表示にする 
-			 	　parentTaskIdがnullではない場合、display:none　nullなら空文字となり何も起きない　-->
-            <div class="form-group" id="recurrenceGroup"
-                 th:style="${task.parentTaskId != null} ? 'display:none;' : ''">
-                <label for="recurrenceRule">繰り返し</label>
-                <select id="recurrenceRule" th:field="*{recurrenceRule}" class="form-control">
-                    <option th:each="rr : ${recurrenceRules}" th:value="${rr.name()}" th:text="${rr.displayName}"></option>
-                </select>
-            </div>
+				<!-- 繰り返し設定の選択欄 -->
+				<div class="form-group" id="recurrenceGroup">
+					<label for="recurrenceRule">繰り返し</label>
+					<select id="recurrenceRule" th:field="*{recurrenceRule}" class="form-control"
+						th:classappend="${task.parentTaskId != null} ? ' form-control-disabled-emphasis' : ''"
+						th:disabled="${task.parentTaskId != null}">
+						<option th:each="rr : ${recurrenceRules}" th:value="${rr.name()}" th:text="${rr.displayName}">
+						</option>
+					</select>
+					<p id="recurrenceDisabledHint" class="form-disabled-hint"
+						th:style="${task.parentTaskId != null} ? '' : 'display:none;'">
+						親タスク選択中は、繰り返し設定は利用できません（なし固定）。
+					</p>
+				</div>
 
-            <!-- 新規作成時はステータスの選択を表示しない（新規は強制で未着手になるため） -->
-            <div class="form-group" th:if="${task.id != null}">
-                <label for="status">ステータス <span class="required">*</span></label>
-                <select id="status" th:field="*{status}" class="form-control">
-                    <option th:each="st : ${statuses}" th:value="${st.name()}" th:text="${st.displayName}"></option>
-                </select>
-            </div>
+				<!-- 毎月末（最終日）チェックボックス -->
+				<div class="form-group" id="lastDayOptionGroup"
+					th:style="${task.recurrenceRule?.name() == 'MONTHLY' && task.parentTaskId == null} ? '' : 'display:none;'">
+					<div class="form-check" style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+						<input type="checkbox" id="isLastDayOfMonth" th:field="*{isLastDayOfMonth}"
+							class="form-check-input">
+						<label for="isLastDayOfMonth" class="form-check-label"
+							style="margin-bottom: 0;">毎月最終日（当月末）を期日にする</label>
+					</div>
+				</div>
 
-			<!-- 保存・キャンセルボタン -->
-            <div class="form-actions">
-                <a th:href="@{/tasks}" class="btn btn-secondary">キャンセル</a>
-                <button type="submit" class="btn btn-primary">保存する</button>
-            </div>
-			
-        </form>
-    </main>
-</div>
+				<!-- 新規作成時はステータスの選択を表示しない -->
+				<div class="form-group" th:if="${task.id != null}">
+					<label for="status">ステータス <span class="required">*</span></label>
+					<select id="status" th:field="*{status}" class="form-control">
+						<option th:each="st : ${statuses}" th:value="${st.name()}" th:text="${st.displayName}"></option>
+					</select>
+				</div>
 
-<!-- サブタスク（親タスク選択あり）の場合は繰り返し設定欄を表示しない制御。
-     サブタスク自身はrecurrenceRuleを持てず、常にNONEで保存される実装（TaskService#saveTask）に
-     合わせて、親タスク選択欄の値が変わるたびに繰り返し欄の表示・非表示を切り替える。
-     非表示にする際は、誤って以前選択していた値が送信されないようNONEにリセットする。 -->
-<script th:inline="javascript">
-    (function () {
-        const parentTaskSelect = document.getElementById('parentTaskId');
-        const recurrenceGroup = document.getElementById('recurrenceGroup');
-        const recurrenceSelect = document.getElementById('recurrenceRule');
+				<!-- 保存・キャンセルボタン -->
+				<div class="form-actions">
+					<a th:href="@{/tasks}" class="btn btn-secondary">キャンセル</a>
+					<button type="submit" class="btn btn-primary">保存する</button>
+				</div>
 
-        function toggleRecurrenceVisibility() {
-            const hasParent = parentTaskSelect.value !== '';
-            recurrenceGroup.style.display = hasParent ? 'none' : '';
-            if (hasParent) {
-                recurrenceSelect.value = 'NONE';
-            }
-        }
+			</form>
+		</main>
+	</div>
 
-        parentTaskSelect.addEventListener('change', toggleRecurrenceVisibility);
-    })();
-</script>
+	<!-- 外部JavaScriptファイルの読み込み -->
+	<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+	<script th:src="@{/js/form.js}"></script>
 </body>
+
 </html>

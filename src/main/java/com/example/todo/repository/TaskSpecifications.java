@@ -3,6 +3,9 @@ package com.example.todo.repository;
 import com.example.todo.model.Priority;
 import com.example.todo.model.Task;
 import com.example.todo.model.TaskStatus;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
@@ -34,89 +37,8 @@ public final class TaskSpecifications {
 	 * @return 検索条件
 	 */
 	public static Specification<Task> hasStatus(TaskStatus status) {
-		// 三項演算子を使わず、あえてif-elseで記述している
-		// 理解出来たら改善
-		// root: エンティティのルート（Taskエンティティ）
-		// query: クエリの定義（CriteriaQuery）
-		// cb: 条件を構築するためのCriteriaBuilder
-		// 要するに、root.get("status")でTaskエンティティのstatusフィールドを取得し、cb.equalでその値が指定されたstatusと等しいかどうかを判定する条件を作成している
-		return (root, query, cb) -> {
-			if (status == null) {
-				return null;
-			} else {
-				return cb.equal(root.get("status"), status);
-			}
-		};
-	}
-
-	/**
-	 * 優先度による絞り込み条件を返す。
-	 *
-	 * @param priority 絞り込み対象の優先度（null の場合は絞り込みなし＝「すべて」）
-	 * @return 検索条件
-	 */
-	public static Specification<Task> hasPriority(Priority priority) {
-		// 三項演算子を使わず、あえてif-elseで記述している
-		// 理解出来たら改善
-		// root: エンティティのルート（Taskエンティティ）
-		// query: クエリの定義（CriteriaQuery）
-		// cb: 条件を構築するためのCriteriaBuilder
-		// 要するに、root.get("priority")でTaskエンティティのpriorityフィールドを取得し、cb.equalでその値が指定されたpriorityと等しいかどうかを判定する条件を作成している
-		return (root, query, cb) -> {
-			if (priority == null) {
-				return null;
-			} else {
-				return cb.equal(root.get("priority"), priority);
-			}
-		};
-	}
-
-	/**
-	 * カテゴリによる絞り込み条件を返す。
-	 * <p>
-	 * {@code categoryId} が指定されている場合はそのカテゴリのタスクのみ、 {@code noCategory} が true
-	 * の場合は「カテゴリなし」（categoryId が null）のタスクのみに絞り込む。 どちらも指定されない場合は絞り込みなし。
-	 * </p>
-	 *
-	 * @param categoryId 絞り込み対象のカテゴリID（null可）
-	 * @param noCategory 「カテゴリなし」のタスクのみに絞り込む場合 true
-	 * @return 検索条件
-	 */
-	public static Specification<Task> hasCategory(Long categoryId, boolean noCategory) {
-		// 三項演算子を使わず、あえてif-elseで記述している
-		// root: エンティティのルート（Taskエンティティ）
-		// query: クエリの定義（CriteriaQuery）
-		// cb: 条件を構築するためのCriteriaBuilder
-		return (root, query, cb) -> {
-			if (noCategory) {
-				return cb.isNull(root.get("categoryId"));
-			}
-			if (categoryId == null) {
-				return null;
-			}
-			return cb.equal(root.get("categoryId"), categoryId);
-		};
-	}
-
-	/**
-	 * キーワードによる絞り込み条件を返す（タイトル・詳細を対象に部分一致・大文字小文字を区別しない検索）。
-	 *
-	 * @param keyword 検索キーワード（null・空文字の場合は絞り込みなし）
-	 * @return 検索条件
-	 */
-	public static Specification<Task> keywordContains(String keyword) {
-		// 三項演算子を使わず、あえてif-elseで記述している
-		// root: エンティティのルート（Taskエンティティ）
-		// query: クエリの定義（CriteriaQuery）
-		// cb: 条件を構築するためのCriteriaBuilder
-		return (root, query, cb) -> {
-			if (keyword == null || keyword.isBlank()) {
-				return null;
-			}
-			String pattern = "%" + keyword.toLowerCase() + "%";
-			return cb.or(cb.like(cb.lower(root.get("title")), pattern),
-					cb.like(cb.lower(cb.coalesce(root.get("description").as(String.class), "")), pattern));
-		};
+		// root.get("status")でTaskエンティティのstatusフィールドを取得し、cb.equalで判定
+		return (root, query, cb) -> status == null ? null : cb.equal(root.get("status"), status);
 	}
 
 	/**
@@ -132,25 +54,95 @@ public final class TaskSpecifications {
 	 * @return 検索条件
 	 */
 	public static Specification<Task> dueFilter(String due, LocalDate today) {
-		// 三項演算子を使わず、あえてif-elseで記述している
-		// root: エンティティのルート（Taskエンティティ）
-		// query: クエリの定義（CriteriaQuery）
-		// cb: 条件を構築するためのCriteriaBuilder
+		return (root, query, cb) -> (due == null || due.isBlank()) ? null :
+				DUE_TODAY_OR_EARLIER.equalsIgnoreCase(due) ? cb.and(cb.isNotNull(root.get("dueDate")), cb.lessThanOrEqualTo(root.get("dueDate"), today)) :
+				DUE_OVERDUE.equalsIgnoreCase(due) ? cb.and(cb.isNotNull(root.get("dueDate")), cb.lessThan(root.get("dueDate"), today), cb.notEqual(root.get("status"), TaskStatus.DONE), cb.notEqual(root.get("status"), TaskStatus.CANCELLED)) :
+				null;
+	}
+
+	/**
+	 * 優先度による絞り込み条件を返す。
+	 *
+	 * @param priority 絞り込み対象の優先度（null の場合は絞り込みなし＝「すべて」）
+	 * @return 検索条件
+	 */
+	public static Specification<Task> hasPriority(Priority priority) {
+		// root.get("priority")でTaskエンティティのpriorityフィールドを取得し、cb.equalで判定
+		return (root, query, cb) -> priority == null ? null : cb.equal(root.get("priority"), priority);
+	}
+
+	/**
+	 * カテゴリによる絞り込み条件を返す。
+	 * <p>
+	 * {@code categoryId} が指定されている場合はそのカテゴリのタスクのみ、 {@code noCategory} が true
+	 * の場合は「カテゴリなし」（categoryId が null）のタスクのみに絞り込む。 どちらも指定されない場合は絞り込みなし。
+	 * </p>
+	 *
+	 * @param categoryId 絞り込み対象のカテゴリID（null可）
+	 * @param noCategory 「カテゴリなし」のタスクのみに絞り込む場合 true
+	 * @return 検索条件
+	 */
+	public static Specification<Task> hasCategory(Long categoryId, boolean noCategory) {
+		return (root, query, cb) -> noCategory ? cb.isNull(root.get("categoryId")) : 
+									(categoryId == null ? null : cb.equal(root.get("categoryId"), categoryId));
+	}
+
+	/**
+	 * キーワードによる絞り込み条件を返す（タイトル・詳細を対象に部分一致・大文字小文字を区別しない検索）。
+	 *
+	 * @param keyword 検索キーワード（null・空文字の場合は絞り込みなし）
+	 * @return 検索条件
+	 */
+	public static Specification<Task> keywordContains(String keyword) {
+		return (root, query, cb) -> (keyword == null || keyword.isBlank()) ? null :
+				cb.or(
+						cb.like(cb.lower(root.get("title")), "%" + keyword.toLowerCase() + "%"),
+						cb.like(cb.lower(cb.coalesce(root.get("description").as(String.class), "")), "%" + keyword.toLowerCase() + "%")
+				);
+	}
+
+	/**
+	 * キーワードによる絞り込み条件を返す。
+	 * <p>
+	 * トップレベルタスク自身のタイトル・詳細に加えて、そのタスクに紐づく「サブタスク」の
+	 * タイトル・詳細がキーワードにマッチする場合も、親タスク（＝自身）をヒットさせる。
+	 * これにより、キーワードがサブタスクのみに一致した場合でも、親タスクが一覧から
+	 * 消えてしまわないようにする（サブタスク自体はトップレベル一覧の行としては表示しない仕様の
+	 * ままで、あくまで「親タスクを探す手がかり」として扱う）。
+	 * </p>
+	 * <p>
+	 * サブタスクとのマッチ判定は、JPA Criteriaの相関サブクエリ（{@code EXISTS}句）で
+	 * 「{@code parentTaskId = (自身のid)} かつ キーワードに一致する」タスクが1件でも
+	 * 存在するかどうかを判定する形で実現する。
+	 * </p>
+	 *
+	 * @param keyword 検索キーワード（null・空文字の場合は絞り込みなし）
+	 * @return 検索条件
+	 */
+	public static Specification<Task> keywordContainsIncludingSubtasks(String keyword) {
 		return (root, query, cb) -> {
-			if (due == null || due.isBlank()) {
+			if (keyword == null || keyword.isBlank()) {
 				return null;
 			}
-			if (DUE_TODAY_OR_EARLIER.equalsIgnoreCase(due)) {
-				return cb.and(cb.isNotNull(root.get("dueDate")), cb.lessThanOrEqualTo(root.get("dueDate"), today));
-			}
-			if (DUE_OVERDUE.equalsIgnoreCase(due)) {
-				return cb.and(cb.isNotNull(root.get("dueDate")), cb.lessThan(root.get("dueDate"), today),
-						cb.notEqual(root.get("status"), TaskStatus.DONE),
-						cb.notEqual(root.get("status"), TaskStatus.CANCELLED));
-			}
-			return null;
+			String pattern = "%" + keyword.toLowerCase() + "%";
+
+			// 自分自身（トップレベルタスク）のタイトル・詳細がキーワードにマッチする条件
+			Predicate selfMatches = cb.or(cb.like(cb.lower(root.get("title")), pattern),
+					cb.like(cb.lower(cb.coalesce(root.get("description").as(String.class), "")), pattern));
+
+			// 相関サブクエリ: 「parentTaskIdが自分（root）のid」かつ「キーワードにマッチする」
+			// サブタスクが1件でも存在するか（EXISTS）を判定する
+			Subquery<Long> subquery = query.subquery(Long.class);
+			Root<Task> subtaskRoot = subquery.from(Task.class);
+			Predicate subtaskMatches = cb.or(cb.like(cb.lower(subtaskRoot.get("title")), pattern),
+					cb.like(cb.lower(cb.coalesce(subtaskRoot.get("description").as(String.class), "")), pattern));
+			subquery.select(subtaskRoot.get("id"))
+					.where(cb.equal(subtaskRoot.get("parentTaskId"), root.get("id")), subtaskMatches);
+
+			return cb.or(selfMatches, cb.exists(subquery));
 		};
 	}
+
 
 	/**
 	 * トップレベルタスク（サブタスクではないタスク）に絞り込む条件を返す。
@@ -162,10 +154,6 @@ public final class TaskSpecifications {
 	 * @return 検索条件（常に {@code parentTaskId IS NULL} を表す。絞り込みなしを意味するnullは返さない）
 	 */
 	public static Specification<Task> isTopLevel() {
-		// root: エンティティのルート（Taskエンティティ）
-		// query: クエリの定義（CriteriaQuery）
-		// cb: 条件を構築するためのCriteriaBuilder
-		// 要するに、root.get("parentTaskId")でTaskエンティティのparentTaskIdフィールドを取得し、cb.isNullでその値がnullかどうかを判定する条件を作成している
 		return (root, query, cb) -> cb.isNull(root.get("parentTaskId"));
 	}
 }
