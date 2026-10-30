@@ -458,7 +458,7 @@ body {
     color: #ffffff;
 }
 
-/* 繰り返しバッジの共通スタイル（1-1）。
+/* 繰り返しバッジの共通スタイル。
    DAILY/WEEKLY/MONTHLYいずれも同系色の落ち着いた配色にし、優先度バッジ等と視覚的に区別する */
 .recurrence-badge {
     display: inline-block;

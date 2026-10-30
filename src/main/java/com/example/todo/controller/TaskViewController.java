@@ -51,12 +51,13 @@ public class TaskViewController {
 		model.addAttribute("priorities", Priority.values());
 		List<Category> categories = categoryService.getAllCategories();
 		model.addAttribute("categories", categories);
-		
+
 		// カテゴリをIDで検索するためのMapを作成してモデルに追加
-		//  th:each の中で外側の変数を参照する場合、選択式（フィルタ構文）では参照できないという制約がある
-		//  「外側の th:each の変数を、内側で普通に参照するだけ」なら問題なし → ステータスの == 比較がこれに該当
-		//  「外側の th:each の変数を、内側の選択式（フィルタ構文）の条件式の中で参照する」と問題が起きる → カテゴリを探す処理がこれに該当
-		//  そのため、カテゴリだけは選択式を避けて categoryMap.get(task.categoryId) という単純な Map 参照に置き換える必要があった
+		// th:each の中で外側の変数を参照する場合、選択式（フィルタ構文）では参照できないという制約がある
+		// 「外側の th:each の変数を、内側で普通に参照するだけ」なら問題なし → ステータスの == 比較がこれに該当
+		// 「外側の th:each の変数を、内側の選択式（フィルタ構文）の条件式の中で参照する」と問題が起きる → カテゴリを探す処理がこれに該当
+		// そのため、カテゴリだけは選択式を避けて categoryMap.get(task.categoryId) という単純な Map
+		// 参照に置き換える必要があった
 		model.addAttribute("categoryMap",
 				categories.stream().collect(Collectors.toMap(Category::getId, Function.identity())));
 
@@ -68,8 +69,7 @@ public class TaskViewController {
 	 * 新規タスク作成フォームを表示します。
 	 * <p>
 	 * {@code parentTaskId} が指定された場合、そのタスクのサブタスクとして作成するフォームとして
-	 * 表示する（一覧画面の「＋サブタスク」ボタンから遷移してきた場合）。「親タスク」選択欄に
-	 * 該当タスクが事前選択された状態になる。
+	 * 表示する（一覧画面の「＋サブタスク」ボタンから遷移してきた場合）。「親タスク」選択欄に 該当タスクが事前選択された状態になる。
 	 * </p>
 	 *
 	 * @param parentTaskId 親タスクとして事前選択するタスクID（任意。一覧画面の「＋サブタスク」ボタンから渡される）
@@ -153,10 +153,9 @@ public class TaskViewController {
 			model.addAttribute("priorities", Priority.values());
 			model.addAttribute("categories", categoryService.getAllCategories());
 			model.addAttribute("recurrenceRules", RecurrenceRule.values());
-			model.addAttribute("parentTaskCandidates",
-					task.getId() == null
-							? taskService.getAvailableParentTaskCandidatesForCreate(null, task.getParentTaskId())
-							: taskService.getAvailableParentTaskCandidatesForEdit(task.getId(), task.getParentTaskId()));
+			model.addAttribute("parentTaskCandidates", task.getId() == null
+					? taskService.getAvailableParentTaskCandidatesForCreate(null, task.getParentTaskId())
+					: taskService.getAvailableParentTaskCandidatesForEdit(task.getId(), task.getParentTaskId()));
 			return "tasks/form";
 		}
 
@@ -170,7 +169,8 @@ public class TaskViewController {
 			taskService.saveTask(task);
 		} catch (IllegalArgumentException e) {
 			// 更新対象のタスクが既に削除されていた場合は、従来どおりエラーメッセージ付きで一覧画面へ戻す
-			// （TaskService#saveTaskがfindById(...).orElseThrow(...)で投げる「Task not found: 」で始まる例外）
+			// （TaskService#saveTaskがfindById(...).orElseThrow(...)で投げる「Task not found:
+			// 」で始まる例外）
 			if (e.getMessage() != null && e.getMessage().startsWith("Task not found")) {
 				redirectAttributes.addFlashAttribute("errorMessage", "対象のタスクは既に削除されているため、保存できませんでした。");
 				return "redirect:/tasks";
@@ -182,10 +182,9 @@ public class TaskViewController {
 			model.addAttribute("priorities", Priority.values());
 			model.addAttribute("categories", categoryService.getAllCategories());
 			model.addAttribute("recurrenceRules", RecurrenceRule.values());
-			model.addAttribute("parentTaskCandidates",
-					task.getId() == null
-							? taskService.getAvailableParentTaskCandidatesForCreate(null, task.getParentTaskId())
-							: taskService.getAvailableParentTaskCandidatesForEdit(task.getId(), task.getParentTaskId()));
+			model.addAttribute("parentTaskCandidates", task.getId() == null
+					? taskService.getAvailableParentTaskCandidatesForCreate(null, task.getParentTaskId())
+					: taskService.getAvailableParentTaskCandidatesForEdit(task.getId(), task.getParentTaskId()));
 			return "tasks/form";
 		}
 
