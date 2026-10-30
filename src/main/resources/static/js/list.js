@@ -590,60 +590,100 @@ function updateSortableState() {
 	table.removeClass('sort-disabled');
 	$('#sortHint').text('行をドラッグして並び替えできます（サブタスクは同じ親タスク内でのみ並び替え可能。絞り込み中は並び替えできません）');
 
+	// jQuery UI sortable の初期化処理を実行
 	tbody.sortable({
+		// 並び替え可能な対象要素を tbody 直下の tr のみに限定する
 		items: '> tr',
+
+		// ドラッグ中の移動軸を垂直（Y軸）方向に固定する（※「高さを固定する」ではなく移動軸の制限）
 		axis: 'y',
+
+		// ドラッグ中のマウスカーソルの形状を move（移動用カーソル）に変更する
 		cursor: 'move',
+
+		// ドラッグ開始（持ち上げた瞬間）に発火するイベントハンドラ
 		start: function(event, ui) {
+			// ドラッグされた行（ui.item）の data-task-id 属性からタスクIDを取得
 			const parentId = ui.item.data('task-id');
+
+			// ドラッグ対象の親タスクIDに紐づくすべてのサブタスク行（.subtask-row）を取得
 			const subtaskRows = $('.subtask-row[data-parent-id="' + parentId + '"]');
+
+			// 親タスクが開いている（expandedParentIdsに存在する）かつサブタスクが存在する場合のみ
+			// DOMからサブタスク行を一時的に切り離し（detach）、変数に保持する（非表示なら null）
 			draggingSubtaskRows = (expandedParentIds.has(parentId) && subtaskRows.length > 0)
 				? subtaskRows.detach()
 				: null;
 		},
+
+		// ドロップして並び替え動作が終了した瞬間に発火するイベントハンドラ
 		stop: function(event, ui) {
+			// 並び替え後の順番が妥当かどうかを判定する
 			if (!isTaskOrderValid(tbody)) {
+				// 並び順が不正（親と子の位置関係が壊れた等）な場合はドラッグ前の状態にキャンセル
 				tbody.sortable('cancel');
 			}
 
+			// start イベントで切り離したサブタスク行が存在する場合の復元処理
 			if (draggingSubtaskRows) {
+				// 移動完了した親タスク行（ui.item）のすぐ直後に切り離していたサブタスク行を再挿入
 				ui.item.after(draggingSubtaskRows);
+
+				// 保持していた参照をクリアしてメモリを解放
 				draggingSubtaskRows = null;
 			}
 		},
+
+		// DOMの位置変更が確定した際（ドロップ成功時）に発火するイベントハンドラ
 		update: function(event, ui) {
+			// 移動された要素がサブタスク行（.subtask-row）であるかを判定
 			if (ui.item.hasClass('subtask-row')) {
+				// 移動されたサブタスク行の data-parent-id 属性から親タスクIDを取得
 				const parentId = ui.item.data('parent-id');
+
+				// 同一の親IDを持つ全サブタスク行を現在のDOM順に走査し、タスクIDの配列を作成
 				const orderedSubtaskIds = $('.subtask-row[data-parent-id="' + parentId + '"]').map(function() {
 					return $(this).data('task-id');
 				}).get();
 
+				// 並び替え後のサブタスクID順をサーバーへ非同期送信（PUTリクエスト）
 				$.ajax({
 					url: '/api/tasks/' + parentId + '/subtasks/reorder',
 					type: 'PUT',
 					contentType: 'application/json',
 					data: JSON.stringify({ taskIds: orderedSubtaskIds }),
+					// 送信失敗時のエラーハンドリング
 					error: function(xhr) {
+						// サーバーからのエラーメッセージ、またはデフォルトメッセージを設定
 						const message = xhr.responseText || 'サブタスクの並び替えの保存に失敗しました。';
+						// ユーザーにアラートで通知
 						alert(message);
+						// 不整合を防ぐため一覧表示を再読み込みして復元
 						reloadTaskList();
 					}
 				});
+				// サブタスクの並び替え処理が終わったため、後続の親タスク用処理を行わずに抜け出す
 				return;
 			}
 
+			// サブタスク行（.subtask-row）を除外した親タスク行のみを現在のDOM順に走査し、タスクIDの配列を作成
 			const orderedTaskIds = tbody.children('tr:not(.subtask-row)').map(function() {
 				return $(this).data('task-id');
 			}).get();
 
+			// 並び替え後の親タスクID順をサーバーへ非同期送信（PUTリクエスト）
 			$.ajax({
 				url: '/api/tasks/reorder',
 				type: 'PUT',
 				contentType: 'application/json',
 				data: JSON.stringify({ taskIds: orderedTaskIds }),
+				// 送信失敗時のエラーハンドリング
 				error: function(xhr) {
+					// サーバーからのエラーメッセージ、またはデフォルトメッセージを設定
 					const message = xhr.responseText || '並び替えの保存に失敗しました。';
+					// ユーザーにアラートで通知
 					alert(message);
+					// 不整合を防ぐため一覧表示を再読み込みして復元
 					reloadTaskList();
 				}
 			});
